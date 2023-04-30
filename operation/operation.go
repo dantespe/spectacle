@@ -7,8 +7,13 @@ import (
 
 // Operation is a class that stores the state of a LRO.
 type Operation struct {
+	// Id of the operation.
 	Id uint64
+
+	// Status of the operation.
 	Status Status
+
+	// Error Message if this operation has FAILED.
 	Message string
 }
 
