@@ -21,6 +21,46 @@ func TestDefault(t *testing.T) {
     }
 }
 
+func TestNewWithOpts(t *testing.T) {
+    testCases := []struct {
+        desc	string
+        opts []dataset.Option
+        expectedDataset *dataset.Dataset
+    }{
+        {
+            desc: "WithId",
+            opts: []dataset.Option{
+                dataset.WithId(3),
+            },
+            expectedDataset: &dataset.Dataset{
+                Id: 3,
+            },
+        },
+        {
+            desc: "WithIdAndDisplayName",
+            opts: []dataset.Option{
+                dataset.WithId(123),
+                dataset.WithDisplayName("my-display-name"),
+            },
+            expectedDataset: &dataset.Dataset{
+                Id: 123,
+                DisplayName: "my-display-name",
+            },
+        },
+    }
+    for _, tc := range testCases {
+        t.Run(tc.desc, func(t *testing.T) {
+            ds, err := dataset.New(tc.opts...)
+            if err != nil {
+                t.Fatalf("Got unexpected err for New(opts): %s", err)
+            }
+            if equal, diff := ds.Equal(tc.expectedDataset); !equal {
+                t.Errorf("Got unexpected diff from expected Dataset: %s", diff)
+            }
+        })
+    }
+}
+
 func TestNewWithId(t *testing.T) {
     testCases := []struct {
         desc	string
