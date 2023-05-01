@@ -31,11 +31,17 @@ func (h *RestHandler) Status(c *gin.Context) {
 }
   
 func (h *RestHandler) CreateDataset(c *gin.Context) { 
-    resp := h.mgr.CreateDataset()
+    req, err := h.rb.CreateDatasetRequestBuilder(c)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, map[string]string{
+            "message": err.Error(),
+        })
+    }
+    resp := h.mgr.CreateDataset(req)
     c.JSON(resp.ResponseCode(), resp.JSON())
 }
   
-func (h *RestHandler) GetDataset(c *gin.Context)  {
+func (h *RestHandler) GetDataset(c *gin.Context) {
     req, err := h.rb.GetDatasetRequestBuilder(c)
     if err != nil {
         c.JSON(http.StatusBadRequest, map[string]string{
