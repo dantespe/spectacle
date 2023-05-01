@@ -9,6 +9,20 @@ import (
 
 type RequestBuilder struct {}
 
+// CreateDatasetRequest 
+type CreateDatasetRequest struct {
+	DisplayName string `json:"displayName"`
+}
+
+// CreateDatasetRequestBuilder from gin.Context.
+func (*RequestBuilder) CreateDatasetRequestBuilder(c *gin.Context) (*CreateDatasetRequest, error) {
+	var req CreateDatasetRequest
+	if err := c.BindJSON(&req); err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
 // GetDatasetRequest
 type GetDatasetRequest struct {
 	DatasetId uint64
