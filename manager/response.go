@@ -1,14 +1,15 @@
 package manager
 
 import (
-    "fmt"
     "net/http"
 
     "github.com/dantespe/spectacle/dataset"
 )
 
+type JSONResponse map[string]interface{}
+
 type Response interface {
-    JSON() map[string]interface{}
+    JSON() JSONResponse
     ResponseCode() int
 }
 
@@ -17,8 +18,8 @@ type DefaultResponse struct {
     Response
 }
 
-func (*DefaultResponse) JSON() map[string]string {
-    return make(map[string]string)
+func (*DefaultResponse) JSON() JSONResponse {
+    return make(JSONResponse)
 }
 
 func (*DefaultResponse) ResponseCode() int  {
@@ -33,15 +34,15 @@ type StatusResponse struct {
     NumRecords int
 }
 
-func (r *StatusResponse) JSON() map[string]string {
+func (r *StatusResponse) JSON() JSONResponse {
     if r.Error != nil {
-        return map[string]string{
+        return JSONResponse {
             "status": "UNHEALTHY",
         }
     }
-    return map[string]string{
+    return JSONResponse {
         "status": "HEALTHY",
-        "num_records": fmt.Sprintf("%d", r.NumRecords),
+        "num_records": r.NumRecords,
     }
 }
 
@@ -49,7 +50,7 @@ func (r *StatusResponse) ResponseCode() int  {
     return http.StatusOK
 }
 
-// CreateDatasetResponse 
+// CreateDatasetResponse
 type CreateDatasetResponse struct {
     DefaultResponse
 
@@ -59,7 +60,7 @@ type CreateDatasetResponse struct {
     DisplayName string
 }
 
-func (r *CreateDatasetResponse) JSON() map[string]interface{} {
+func (r *CreateDatasetResponse) JSON() JSONResponse {
     if r.Error != nil {
         return map[string]interface{}{
             "message": "Failed to create dataset.",
@@ -67,9 +68,9 @@ func (r *CreateDatasetResponse) JSON() map[string]interface{} {
     }
     return map[string]interface{}{
         "DatasetUrl": r.DatasetUrl,
-        "DatasetId": r.DatasetId, 
+        "DatasetId": r.DatasetId,
         "DisplayName": r.DisplayName,
-    }	
+    }
 }
 
 func (r *CreateDatasetResponse) ResponseCode() int {
@@ -90,17 +91,17 @@ type GetDatasetResponse struct {
     NumRecords uint64
 }
 
-func (r *GetDatasetResponse) JSON() map[string]string {
+func (r *GetDatasetResponse) JSON() JSONResponse {
     if r.Error != nil {
-        return map[string]string {
+        return JSONResponse {
             "message": "Dataset not found.",
         }
     }
 
-    return map[string]string {
-        "DatasetId": fmt.Sprintf("%d", r.Dataset.Id),
+    return JSONResponse {
+        "DatasetId": r.Dataset.Id,
         "DisplayName": r.Dataset.DisplayName,
-        "NumRecords": fmt.Sprintf("%d", r.Dataset.NumRecords), 
+        "NumRecords": r.Dataset.NumRecords,
     }
 }
 
@@ -129,14 +130,14 @@ func newListDatasetsResponse() *ListDatasetsResponse {
     }
 }
 
-func (r *ListDatasetsResponse) JSON() map[string]interface{} {
+func (r *ListDatasetsResponse) JSON() JSONResponse {
     if r.Error != nil {
-        return map[string]interface{} {
+        return JSONResponse {
             "message": "Failed to list datasets.",
         }
     }
 
-    return map[string]interface{} {
+    return JSONResponse {
         "Results": r.Results,
         "TotalDatasets": len(r.Results),
     }
