@@ -4,7 +4,6 @@ package dataset_test
 import (
     "testing"
 
-    "github.com/go-test/deep"
     "github.com/dantespe/spectacle/dataset"
 )
 
@@ -88,11 +87,13 @@ func TestNewWithId(t *testing.T) {
     }
 }
 
-func TestSummary(t *testing.T) {
+func TestCopy(t *testing.T) {
     testCases := []struct {
         desc	string
         ds *dataset.Dataset
-        expectedSummary map[string]interface{}
+        id uint64
+        displayName string
+        numRecords uint64
     }{
         {
             desc: "default",
@@ -101,17 +102,22 @@ func TestSummary(t *testing.T) {
                 DisplayName: "my-dataset",
                 NumRecords: 10000,
             },
-            expectedSummary: map[string]interface{}{
-                "datasetId": uint64(123),
-                "displayName": "my-dataset",
-                "numRecords": uint64(10000),
-            },
+            id: 123,
+            displayName: "my-dataset",
+            numRecords: 10000,
         },
     }
     for _, tc := range testCases {
         t.Run(tc.desc, func(t *testing.T) {
-            if diff := deep.Equal(tc.ds.Summary(), tc.expectedSummary); diff != nil {
-                t.Error(diff)
+            cpy := tc.ds.Copy()
+            if cpy.Id != tc.ds.Id {
+                t.Errorf("Got Id: %d, want: %d", cpy.Id, tc.ds.Id)
+            }
+            if cpy.DisplayName != tc.ds.DisplayName {
+                t.Errorf("Got DisplayName: %s, want: %s", cpy.DisplayName, tc.ds.DisplayName)
+            }
+            if cpy.NumRecords != tc.ds.NumRecords {
+                t.Errorf("Num Records: %d, want: %d", cpy.NumRecords, tc.ds.NumRecords)
             }
         })
     }

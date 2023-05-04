@@ -9,13 +9,13 @@ import (
 // Dataset contains all logic for managing data in Spectacle.
 type Dataset struct {
     // Id of the dataset.
-    Id uint64
+    Id uint64 `json:"datasetId"`
 
     // DisplayName of Datast.
-    DisplayName string
+    DisplayName string `json:"displayName"`
 
     // Number of Records (Rows) in the dataset.
-    NumRecords uint64
+    NumRecords uint64 `json:"numRecords"`
 
     // Maximum number of threads to run when importing data.
     maxThreads int
@@ -74,15 +74,16 @@ func Default() (*Dataset, error) {
     }, nil
 }
 
-// Summary for the Dataset.
-func (d *Dataset) Summary() map[string]interface{} {
+// Shallow copy of the dataset. This can be used
+// for thread-safe printing of the Dataset.
+func (d *Dataset) Copy() *Dataset {
     d.mu.RLock()
     defer d.mu.RUnlock()
 
-    return map[string]interface{} {
-        "datasetId": d.Id,
-        "displayName": d.DisplayName,
-        "numRecords": d.NumRecords,
+    return &Dataset{
+        Id: d.Id,
+        DisplayName: d.DisplayName,
+        NumRecords: d.NumRecords,
     }
 }
 
