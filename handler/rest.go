@@ -3,8 +3,6 @@ package handler
 
 import (
     "net/http"
-    // "os"
-    // "io"
 
     "github.com/dantespe/spectacle/manager"
     "github.com/gin-gonic/gin"
