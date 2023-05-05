@@ -33,6 +33,7 @@ func TestNewWithOpts(t *testing.T) {
             },
             expectedDataset: &dataset.Dataset{
                 Id: 3,
+                HasHeaders: true,
             },
         },
         {
@@ -44,6 +45,18 @@ func TestNewWithOpts(t *testing.T) {
             expectedDataset: &dataset.Dataset{
                 Id: 123,
                 DisplayName: "my-display-name",
+                HasHeaders: true,
+            },
+        },
+        {
+            desc: "WithoutHasHeaders",
+            opts: []dataset.Option{
+                dataset.WithId(1),
+                dataset.WithHasHeaders(false),
+            },
+            expectedDataset: &dataset.Dataset{
+                Id: 1,
+                HasHeaders: false,
             },
         },
     }

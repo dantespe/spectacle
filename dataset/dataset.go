@@ -17,7 +17,12 @@ type Dataset struct {
     // Number of Records (Rows) in the dataset.
     NumRecords uint64 `json:"numRecords"`
 
+    // HasHeaders 
+    // Default: true 
+    HasHeaders bool    `json:"hasHeaders"`    
+
     // Maximum number of threads to run when importing data.
+    // Default: 1000
     maxThreads int
 
     // Lock
@@ -53,6 +58,13 @@ func WithDisplayName(displayName string) Option {
     }
 }
 
+// Returns an Option with HasHeaders set.
+func WithHasHeaders(hasHeaders bool) Option {
+    return func(ds *Dataset) {
+        ds.HasHeaders = hasHeaders
+    } 
+}
+
 // Returns an Option with maxImportThreads set.
 func WithMaxImportThreads(n int) Option {
     return func(ds *Dataset) {
@@ -71,6 +83,7 @@ func NewWithId(id uint64) (*Dataset, error) {
 func Default() (*Dataset, error) {
     return &Dataset{
         maxThreads: 100,
+        HasHeaders: true,
     }, nil
 }
 
@@ -102,6 +115,9 @@ func (d *Dataset) Equal(other *Dataset) (bool, string)  {
     }
     if d.DisplayName != other.DisplayName {
         return false, fmt.Sprintf("DisplayName: %s vs %s", d.DisplayName, other.DisplayName)
+    }
+    if d.HasHeaders != other.HasHeaders {
+        return false, fmt.Sprintf("HasHeaders: %v vs %v", d.HasHeaders, other.HasHeaders)
     }
     if d.NumRecords != other.NumRecords {
         return false, fmt.Sprintf("NumRecords: %d vs %d", d.NumRecords, other.NumRecords)
