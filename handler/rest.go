@@ -13,15 +13,22 @@ type RestHandler struct {
     rb *manager.RequestBuilder
 }
 
-func NewRestHandler() (*RestHandler, error) {
+func AddRestHandlerRoutes(rg *gin.RouterGroup) error {
     mgr, err := manager.New()
     if err != nil {
-        return nil, err
+        return err
     }
-    return &RestHandler{
+    rh := &RestHandler{
         mgr: mgr,
         rb: &manager.RequestBuilder{},
-    }, nil
+    }
+    for k,v := range rh.GetRoutes() {
+        rg.GET(k, v)
+    }
+    for k,v := range rh.PostRoutes() {
+        rg.POST(k, v)
+    }
+    return nil
 }
 
 func (h *RestHandler) Status(c *gin.Context) {
