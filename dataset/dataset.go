@@ -191,3 +191,13 @@ func (d *Dataset) Upload(r io.Reader) error {
     wg.Wait()
     return nil
 }
+
+// SetUntitledDisplayName sets the DisplayName to untitled-{n} if displayName is empty.
+// Increments counter if the Dataset is untitled.
+func (d *Dataset) SetUntitledDisplayName(u int) int {
+    if d.DisplayName == "" {
+        d.DisplayName = fmt.Sprintf("untitled-%d", u)
+        return u + 1
+    }
+    return u
+}
