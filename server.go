@@ -12,7 +12,7 @@ import (
 func main() {
 	// TODO: Add UI
 	router := gin.Default()
-	router.LoadHTMLGlob("templates/*")
+	router.LoadHTMLGlob("templates/**/*")
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -20,8 +20,12 @@ func main() {
 	}
 
 	var assets_folder string = wd + "/assets"
+	var page_files string = wd + "/pages"
+	var style_file string = wd + "/templates/layout/style.css"
 
 	router.Static("assets", assets_folder)
+	router.Static("templates/pages", page_files)
+	router.StaticFile("/style.css", style_file)
 
 	rh, err := handler.NewRestHandler()
 	if err != nil {
@@ -41,13 +45,12 @@ func main() {
 	if uiErr != nil {
 		log.Fatal(uiErr)
 	}
-	ui := router.Group("home")
 	{
 		for k, v := range uh.GetRoutes() {
-			ui.GET(k, v)
+			router.GET(k, v)
 		}
 		for k, v := range uh.PostRoutes() {
-			ui.POST(k, v)
+			router.POST(k, v)
 		}
 	}
 	// TODO: Add UI Handler
