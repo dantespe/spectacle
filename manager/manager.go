@@ -14,6 +14,7 @@ import (
 type Manager struct {
     ds map[uint64]*dataset.Dataset
     ops map[uint64]*operation.Operation
+    uds int
     mu sync.RWMutex
 }
 
@@ -22,6 +23,8 @@ func New() (*Manager, error) {
     return &Manager{
         ds: make(map[uint64]*dataset.Dataset),
         ops: make(map[uint64]*operation.Operation),
+        // one-based indexing on DisplayName
+        uds: 1, 
     }, nil
 }
 
@@ -56,7 +59,10 @@ func (m *Manager) CreateDataset(req *CreateDatasetRequest) (int, *CreateDatasetR
                     Message: err.Error(),
                 }
             }
+            // Set DisplayName
+            m.uds = ds.SetUntitledDisplayName(m.uds)
             m.ds[id] = ds
+
             return http.StatusCreated, &CreateDatasetResponse{
                 DatasetUrl: fmt.Sprintf("/dataset/%d", id),
                 DatasetId: id,
@@ -122,7 +128,7 @@ func (m *Manager) processUploadDatasetRequest(req *UploadDatasetRequest, op *ope
         op.MarkCompleted()
     }
 }
- 
+
 func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetResponse) {
     m.mu.Lock()
     defer m.mu.Unlock()
@@ -138,7 +144,7 @@ func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetR
     // Create Operation
     op := m.createUniqueOperation()
 
-    // Non-blocking uploadDatasetRequset 
+    // Non-blocking uploadDatasetRequset
     go m.processUploadDatasetRequest(req, op, ds)
 
     // return Operation

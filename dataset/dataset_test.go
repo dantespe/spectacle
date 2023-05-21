@@ -135,3 +135,45 @@ func TestCopy(t *testing.T) {
         })
     }
 }
+
+func TestSetUntitledDisplayName(t *testing.T) {
+    testCases := []struct {
+        desc	string
+        displayName string
+        uId int
+        expectedDisplayName string 
+        expectedUid int
+    }{
+        {
+            desc: "provided",
+            displayName: "test-123",
+            uId: 4,
+            expectedDisplayName: "test-123",
+            expectedUid: 4,
+        },
+        {
+            desc: "untitled",
+            displayName: "",
+            uId: 8,
+            expectedDisplayName: "untitled-8",
+            expectedUid: 9,
+        },
+    }
+    for _, tc := range testCases {
+        t.Run(tc.desc, func(t *testing.T) {
+            ds, err := dataset.New(
+                dataset.WithDisplayName(tc.displayName),
+            )
+            if err != nil {
+                t.Fatalf("failed to create dataset")
+            }
+            uid := ds.SetUntitledDisplayName(tc.uId)
+            if ds.DisplayName != tc.expectedDisplayName {
+                t.Errorf("Got DisplayName: %s, want: %s", ds.DisplayName, tc.expectedDisplayName)
+            }
+            if uid != tc.expectedUid {
+                t.Errorf("Got uId: %d, want: %d", uid, tc.expectedUid)
+            }
+        })
+    }
+}
