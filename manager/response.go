@@ -1,146 +1,42 @@
 package manager
 
 import (
-	"fmt"
-	"net/http"
-
-	"github.com/dantespe/spectacle/dataset"
+    "github.com/dantespe/spectacle/dataset"
 )
-
-type Response interface {
-	JSON() map[string]interface{}
-	ResponseCode() int
-}
-
-// DefaultResponse
-type DefaultResponse struct {
-	Response
-}
-
-func (*DefaultResponse) JSON() map[string]string {
-	return make(map[string]string)
-}
-
-func (*DefaultResponse) ResponseCode() int  {
-	return http.StatusOK
-}
 
 // StatusResponse
 type StatusResponse struct {
-	DefaultResponse
-
-	Error error
-	NumRecords int
+    Message string `json:"-"`
+    NumRecords int `json:"numRecords"`
+    NumDatasets int `json:"numDatasets"`
+    Status string `json:"status"`
+    Code int `json:"code"`
 }
 
-func (r *StatusResponse) JSON() map[string]string {
-	if r.Error != nil {
-		return map[string]string{
-			"status": "UNHEALTHY",
-		}
-	}
-	return map[string]string{
-		"status": "HEALTHY",
-		"num_records": fmt.Sprintf("%d", r.NumRecords),
-	}
-}
-
-func (r *StatusResponse) ResponseCode() int  {
-	return http.StatusOK
-}
-
-// CreateDatasetResponse 
+// CreateDatasetResponse
 type CreateDatasetResponse struct {
-	DefaultResponse
-
-	Error error
-	DatasetId uint64
-}
-
-func (r *CreateDatasetResponse) JSON() map[string]string {
-	if r.Error != nil {
-		return map[string]string{
-			"message": "Failed to create dataset.",
-		}
-	}
-	return map[string]string{
-		"DatasetId": fmt.Sprintf("%d", r.DatasetId),
-	}	
-}
-
-func (r *CreateDatasetResponse) ResponseCode() int {
-	if r.Error != nil {
-		return http.StatusInternalServerError
-	}
-	return http.StatusCreated
+    Message string `json:"error,omitempty"`
+    DatasetId uint64 `json:"datasetId,omitempty"`
+    DatasetUrl string `json:"datasetUrl,omitempty"`
+    DisplayName string `json:"displayName,omitempty"`
 }
 
 // GetDatasetResponse
 type GetDatasetResponse struct {
-	DefaultResponse
-
-	Error error
-	Dataset *dataset.Dataset
-	DatasetId uint64
-	DisplayName string
-	NumRecords uint64
-}
-
-func (r *GetDatasetResponse) JSON() map[string]string {
-	if r.Error != nil {
-		return map[string]string {
-			"message": "Dataset not found.",
-		}
-	}
-
-	return map[string]string {
-		"DatasetId": fmt.Sprintf("%d", r.Dataset.Id),
-		"DisplayName": r.Dataset.DisplayName,
-		"NumRecords": fmt.Sprintf("%d", r.Dataset.NumRecords), 
-	}
-}
-
-func (r *GetDatasetResponse) ResponseCode() int {
-	if r.Error != nil {
-		return http.StatusNotFound
-	}
-	return http.StatusOK
+    Message string `json:"error,omitempty"`
+    Dataset *dataset.Dataset `json:"dataset,omitempty"`
+    Code int `json:"code"`
 }
 
 // ListDatasetsResponse
 type ListDatasetsResponse struct {
-	DefaultResponse
-
-	Error error
-	Results []interface{}
-
-	// Page int
-	// Next string
-	TotalDatasets int
+    Results []*dataset.Dataset `json:"results"`
+    TotalDatasets int `json:"totalDatasets"`
+    Message string `json:"error,omitempty"`
 }
 
-func newListDatasetsResponse() *ListDatasetsResponse {
-	return &ListDatasetsResponse{
-		Results: make([]interface{}, 0),
-	}
-}
-
-func (r *ListDatasetsResponse) JSON() map[string]interface{} {
-	if r.Error != nil {
-		return map[string]interface{} {
-			"message": "Failed to list datasets.",
-		}
-	}
-
-	return map[string]interface{} {
-		"Results": r.Results,
-		"TotalDatasets": len(r.Results),
-	}
-}
-
-func (r *ListDatasetsResponse) ResponseCode() int {
-	if r.Error != nil {
-		return http.StatusBadRequest
-	}
-	return http.StatusOK
+// UploadDatasetResponse
+type UploadDatasetResponse struct {
+    OperationUrl string  `json:"operation,omitempty"`
+    Message string `json:"error,omitempty"`
 }
