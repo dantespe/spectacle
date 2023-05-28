@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/dantespe/spectacle/manager"
@@ -56,38 +58,72 @@ func (u *UIHandler) Starter(c *gin.Context) {
 }
 
 func (u *UIHandler) MakeDataset(c *gin.Context) {
-	// fileName := c.PostForm("datasetFile")
+	datasetName, _ := c.MultipartForm()
+	var fileName string
+
+	if len(datasetName.Value["newFileName"]) == 0 {
+		fileName = fmt.Sprintf(`{"displayName": "%s", "hasHeaders": true}`, "NewDataset")
+	} else {
+		fileName = fmt.Sprintf(`{"displayName": "%s", "hasHeaders": true}`, datasetName.Value["newFileName"][0])
+	}
+
 	datasetResp, err := http.Post(
 		"http://localhost:8080/rest/dataset",
-		"application/json", strings.NewReader(`{"displayName": "NewDataset"}`))
+		"application/json", strings.NewReader(fileName))
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error with creating new dataset: %v", err)
 	}
 	defer datasetResp.Body.Close()
-	log.Print(datasetResp.StatusCode == http.StatusCreated, datasetResp.StatusCode)
+
 	if datasetResp.StatusCode == http.StatusCreated {
+		var resp manager.CreateDatasetResponse
 		bodyBytes, err := io.ReadAll(datasetResp.Body)
 		if err != nil {
 			log.Print("Processing read error: ", err)
 		}
-
-		var resp manager.CreateDatasetResponse
 		json.Unmarshal(bodyBytes, &resp)
 
-		file_data, err := c.FormFile("file")
+		file, _, err := c.Request.FormFile("file")
 		if err != nil {
 			log.Print("Processing form error: ", err)
 		}
-		file, _ := file_data.Open()
-		var filename string = "../../Downloads/" + file_data.Filename
-		fileInfo, err := os.Stat(filename)
-		// check if error is "file not exists"
+
+		client := http.Client{}
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		fw, err := writer.CreateFormFile("file", "dataset.csv")
 		if err != nil {
-			log.Print("Error processing", fileInfo, ": ", err)
+			log.Printf("There was an issue creating a new field: %v", err)
 		}
-		defer file.Close()
-		http.Post("/rest"+resp.DatasetUrl+"/upload", "multipart/form-data", file)
-		c.Redirect(http.StatusTemporaryRedirect, "/edit_dataset")
+		_, err = io.Copy(fw, file)
+		if err != nil {
+			log.Printf("Failed to build HTTP request with err: %v", err)
+		}
+
+		writer.Close()
+		uploadResp, err := http.NewRequest("POST", "http://localhost:8080/rest"+resp.DatasetUrl+"/upload", bytes.NewReader(body.Bytes()))
+		if err != nil {
+			log.Printf("There's a bug in recreating a new request: %v", err)
+		}
+		uploadResp.Header.Set("Content-Type", writer.FormDataContentType())
+
+		client.Do(uploadResp)
+		datasetsResp, err := http.Get("http://localhost:8080/rest/datasets")
+		if err != nil {
+			log.Printf("Error occured while trying to retrieve datasets because %s", err)
+		}
+
+		var datasets manager.ListDatasetsResponse
+		newBodyBytes, err := io.ReadAll(datasetsResp.Body)
+		if err != nil {
+			log.Print("Processing read error: ", err)
+		}
+		json.Unmarshal(newBodyBytes, &datasets)
+
+		c.HTML(http.StatusOK, "datasets.html", gin.H{
+			"datasets": datasets.Results,
+		})
 	}
 }
 
@@ -108,7 +144,7 @@ func (u *UIHandler) ImportData(c *gin.Context) {
 }
 
 func (u *UIHandler) EditData(c *gin.Context) {
-	c.HTML(http.StatusOK, "datasets.html#v-pills-messages-tab", nil)
+	c.HTML(http.StatusOK, "datasets.html", nil)
 }
 
 func (u *UIHandler) Share(c *gin.Context) {
@@ -141,6 +177,6 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 func (u *UIHandler) PostRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/create_dataset": u.MakeDataset,
-		"/edit_dataset":   u.EditData,
+		// "/edit_dataset":   u.EditData,
 	}
 }
