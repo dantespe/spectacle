@@ -19,6 +19,7 @@ type CreateDatasetResponse struct {
     DatasetId uint64 `json:"datasetId,omitempty"`
     DatasetUrl string `json:"datasetUrl,omitempty"`
     DisplayName string `json:"displayName,omitempty"`
+    Code int `json:"code"`
 }
 
 // GetDatasetResponse
@@ -33,6 +34,7 @@ type ListDatasetsResponse struct {
     Results []*dataset.Dataset `json:"results"`
     TotalDatasets int `json:"totalDatasets"`
     Message string `json:"error,omitempty"`
+    Code int `json:"code"`
 }
 
 // UploadDatasetResponse

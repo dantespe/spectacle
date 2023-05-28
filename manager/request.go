@@ -18,11 +18,7 @@ type CreateDatasetRequest struct {
 // CreateDatasetRequestBuilder from gin.Context.
 func (*RequestBuilder) CreateDatasetRequestBuilder(c *gin.Context) (*CreateDatasetRequest, *CreateDatasetResponse) {
 	var req CreateDatasetRequest
-	if err := c.BindJSON(&req); err != nil {
-		return nil, &CreateDatasetResponse{
-			Message: err.Error(),
-		}
-	}
+	c.ShouldBindJSON(&req)
 	return &req, nil
 }
 
