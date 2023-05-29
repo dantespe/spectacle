@@ -1,7 +1,14 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/dantespe/spectacle/manager"
 	"github.com/gin-gonic/gin"
@@ -12,16 +19,32 @@ type UIHandler struct {
 	rb  *manager.RequestBuilder
 }
 
-func NewUIHandler() (*UIHandler, error) {
+func AddUIHandlerRoutes(r *gin.Engine, wd string) error {
+	r.LoadHTMLGlob("templates/**/*")
+
+	var assets_folder string = wd + "/assets"
+	var page_files string = wd + "/pages"
+	var style_file string = wd + "/templates/layout/style.css"
+
+	r.Static("assets", assets_folder)
+	r.Static("templates/pages", page_files)
+	r.StaticFile("/style.css", style_file)
+
 	mgr, err := manager.New()
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	return &UIHandler{
+	ui := &UIHandler{
 		mgr: mgr,
 		rb:  &manager.RequestBuilder{},
-	}, nil
+	}
+	for k, v := range ui.GetRoutes() {
+		r.GET(k, v)
+	}
+	for k, v := range ui.PostRoutes() {
+		r.POST(k, v)
+	}
+	return nil
 }
 
 func (u *UIHandler) Index(c *gin.Context) {
@@ -34,21 +57,126 @@ func (u *UIHandler) Starter(c *gin.Context) {
 	c.HTML(http.StatusOK, "get_started.html", nil)
 }
 
-// func Home() any {
-// 	return map[string]int{"datasetId": 9908576756734740233}
-// }
+func (u *UIHandler) MakeDataset(c *gin.Context) {
+	datasetName, _ := c.MultipartForm()
+	var fileName string
+
+	if len(datasetName.Value["newFileName"]) == 0 {
+		fileName = fmt.Sprintf(`{"displayName": "%s", "hasHeaders": true}`, "NewDataset")
+	} else {
+		fileName = fmt.Sprintf(`{"displayName": "%s", "hasHeaders": true}`, datasetName.Value["newFileName"][0])
+	}
+
+	datasetResp, err := http.Post(
+		"http://localhost:8080/rest/dataset",
+		"application/json", strings.NewReader(fileName))
+	if err != nil {
+		log.Printf("Error with creating new dataset: %v", err)
+	}
+	defer datasetResp.Body.Close()
+
+	if datasetResp.StatusCode == http.StatusCreated {
+		var resp manager.CreateDatasetResponse
+		bodyBytes, err := io.ReadAll(datasetResp.Body)
+		if err != nil {
+			log.Print("Processing read error: ", err)
+		}
+		json.Unmarshal(bodyBytes, &resp)
+
+		file, _, err := c.Request.FormFile("file")
+		if err != nil {
+			log.Print("Processing form error: ", err)
+		}
+
+		client := http.Client{}
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		fw, err := writer.CreateFormFile("file", "dataset.csv")
+		if err != nil {
+			log.Printf("There was an issue creating a new field: %v", err)
+		}
+		_, err = io.Copy(fw, file)
+		if err != nil {
+			log.Printf("Failed to build HTTP request with err: %v", err)
+		}
+
+		writer.Close()
+		uploadResp, err := http.NewRequest("POST", "http://localhost:8080/rest"+resp.DatasetUrl+"/upload", bytes.NewReader(body.Bytes()))
+		if err != nil {
+			log.Printf("There's a bug in recreating a new request: %v", err)
+		}
+		uploadResp.Header.Set("Content-Type", writer.FormDataContentType())
+
+		client.Do(uploadResp)
+		datasetsResp, err := http.Get("http://localhost:8080/rest/datasets")
+		if err != nil {
+			log.Printf("Error occured while trying to retrieve datasets because %s", err)
+		}
+
+		var datasets manager.ListDatasetsResponse
+		newBodyBytes, err := io.ReadAll(datasetsResp.Body)
+		if err != nil {
+			log.Print("Processing read error: ", err)
+		}
+		json.Unmarshal(newBodyBytes, &datasets)
+
+		c.HTML(http.StatusOK, "datasets.html", gin.H{
+			"datasets": datasets.Results,
+		})
+	}
+}
+
+func (u *UIHandler) CreateChart(c *gin.Context) {
+	c.HTML(http.StatusOK, "build_charts.html", nil)
+}
+
+func (u *UIHandler) CreateDashboard(c *gin.Context) {
+	c.HTML(http.StatusOK, "build_dashboards.html", nil)
+}
+
+func (u *UIHandler) CreateSummary(c *gin.Context) {
+	c.HTML(http.StatusOK, "build_summary.html", nil)
+}
+
+func (u *UIHandler) ImportData(c *gin.Context) {
+	c.HTML(http.StatusCreated, "datasets.html", nil)
+}
+
+func (u *UIHandler) EditData(c *gin.Context) {
+	c.HTML(http.StatusOK, "datasets.html", nil)
+}
+
+func (u *UIHandler) Share(c *gin.Context) {
+	c.HTML(http.StatusOK, "sharing.html", nil)
+}
+
+func (u *UIHandler) Settings(c *gin.Context) {
+	c.HTML(http.StatusOK, "settings.html", nil)
+}
+
+func (u *UIHandler) Visualizations(c *gin.Context) {
+	c.HTML(http.StatusOK, "visualizations.html", nil)
+}
 
 func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
-		"/welcome":     u.Index,
-		"/get_started": u.Starter,
-		// "/login":    u.ListDatasets,
-		// "/settings": u.GetDataset,
+		"/":                 u.Index,
+		"/get_started":      u.Starter,
+		"/create_chart":     u.CreateChart,
+		"/create_dashboard": u.CreateDashboard,
+		"/create_summary":   u.CreateSummary,
+		"/create_dataset":   u.ImportData,
+		"/edit_dataset":     u.EditData,
+		"/visualizations":   u.Visualizations,
+		"/share":            u.Share,
+		"/settings":         u.Settings,
 	}
 }
 
 func (u *UIHandler) PostRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
-		// "/create_chart": ...
+		"/create_dataset": u.MakeDataset,
+		// "/edit_dataset":   u.EditData,
 	}
 }
