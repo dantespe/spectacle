@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+{{define "edit_dataset"}}
+<div class="container-fluid">
+  <table id="datasetsTable">
+    <!-- Table header -->
+    <thead>
+    <tr>
+        <th scope="col" width="35%">ID</th>
+        <th scope="col" width="35%">Display Name</th>
+        <th scope="col" width="20%">Row Count</th>
+        <th scope="col" width="10%">Headers</th>
+    </tr>
+    </thead>
+    <!-- Table footer -->
+    <tfoot>
+    <tr>
+        <td>END</td>
+    </tr>
+    </tfoot>
+    <!-- Table body -->
+    <tbody>
+    {{ range .datasets }}
+    <tr>
+        <td>{{ .Id }}</td>
+        <td>{{ .DisplayName }}</td>
+        <td>{{ .NumRecords }}</td>
+        <td>{{ .HasHeaders }}</td>
+    </tr>
+    {{ end }}
+    </tbody>
+</table>
+</div>
+{{end}}

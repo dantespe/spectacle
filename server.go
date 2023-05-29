@@ -2,46 +2,30 @@
 package main
 
 import (
-    "log"
-    "os"
+	"log"
+	"os"
 
-    "github.com/dantespe/spectacle/handler"
-    "github.com/gin-gonic/gin"
+	"github.com/dantespe/spectacle/handler"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-    router := gin.Default()
+	router := gin.Default()
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    // REST 
-    if err := handler.AddRestHandlerRoutes(router.Group("rest")); err != nil {
-        log.Fatal(err)        
-    }
+	// REST
+	if err := handler.AddRestHandlerRoutes(router.Group("rest")); err != nil {
+		log.Fatal(err)
+	}
 
-    // TODO: Clean this up
-    router.LoadHTMLGlob("templates/*")
+	// UI
+	if err := handler.AddUIHandlerRoutes(router, wd); err != nil {
+		log.Fatal(err)
+	}
 
-    wd, err := os.Getwd()
-    if err != nil {
-        log.Fatal(err)
-    }
+	router.Run() // localhost:8080
 
-    var assets_folder string = wd + "/assets"
-
-    router.Static("assets", assets_folder)
-
-    uh, uiErr := handler.NewUIHandler()
-    if uiErr != nil {
-        log.Fatal(uiErr)
-    }
-    ui := router.Group("home")
-    {
-        for k, v := range uh.GetRoutes() {
-            ui.GET(k, v)
-        }
-        for k, v := range uh.PostRoutes() {
-            ui.POST(k, v)
-        }
-    }
-
-    router.Run() // localhost:8080
 }

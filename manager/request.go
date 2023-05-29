@@ -13,6 +13,7 @@ type RequestBuilder struct{}
 // CreateDatasetRequest
 type CreateDatasetRequest struct {
 	DisplayName string `json:"displayName"`
+	HasHeaders  bool   `json:"hasHeaders"`
 }
 
 // CreateDatasetRequestBuilder from gin.Context.
@@ -45,18 +46,6 @@ type ListDatasetsRequest struct {
 func (*RequestBuilder) ListDatasetsRequestBuilder(c *gin.Context) (*ListDatasetsRequest, error) {
 	req := newListDatasetsRequest()
 	c.ShouldBindJSON(&req)
-
-	if md := c.Param("max_datasets"); md != "" {
-		m, err := strconv.ParseInt(md, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		if m < 0 {
-			return nil, fmt.Errorf("max_datasets must be a postive number")
-		}
-		req.MaxDatasets = m
-	}
-
 	return req, nil
 }
 

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+{{define "add_dataset"}}
+<div class="container-fluid">
+    <form name="select_datasets" action="/create_dataset#edit" method="post" enctype="multipart/form-data">
+            <label for="newFileName">File Name: </label>
+            <input type="text" id="newFileName" name="newFileName" class="form-control" aria-describedby="fileNameBlock">
+            <small id="fileNameBlock" class="form-text text-muted">
+              Your file must be a csv or excel file. File name cannot contain spaces.
+              Upload currently only supports one file at a time.
+            </small>
+            <div class="custom-file">
+              <label class="custom-file-label" for="file">Choose a file: </label>
+              <input type="file" class="custom-file-input" id="file" name="file">
+            </div>
+        <button type="submit" name="selected_submit">Upload</button>
+    </form>
+</div>
+{{end}}
