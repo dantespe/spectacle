@@ -41,4 +41,5 @@ type ListDatasetsResponse struct {
 type UploadDatasetResponse struct {
     OperationUrl string  `json:"operation,omitempty"`
     Message string `json:"error,omitempty"`
+		Code int `json:"code"`
 }

@@ -58,6 +58,7 @@ func (m *Manager) CreateDataset(req *CreateDatasetRequest) (int, *CreateDatasetR
 			if err != nil {
 				return http.StatusBadRequest, &CreateDatasetResponse{
 					Message: err.Error(),
+					Code: http.StatusBadRequest,
 				}
 			}
 			// Set DisplayName
@@ -68,6 +69,7 @@ func (m *Manager) CreateDataset(req *CreateDatasetRequest) (int, *CreateDatasetR
 				DatasetUrl:  fmt.Sprintf("/dataset/%d", id),
 				DatasetId:   id,
 				DisplayName: ds.DisplayName,
+				Code: http.StatusCreated,
 			}
 		}
 	}
@@ -97,6 +99,7 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 	resp := &ListDatasetsResponse{
 		Results:       []*dataset.Dataset{},
 		TotalDatasets: 0,
+		Code: http.StatusOK,
 	}
 	for _, ds := range m.ds {
 		if ds != nil {
@@ -139,6 +142,7 @@ func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetR
 	if !ok {
 		return http.StatusNotFound, &UploadDatasetResponse{
 			Message: fmt.Sprintf("failed to find dataset: %d", req.DatasetId),
+			Code: http.StatusNotFound,
 		}
 	}
 
@@ -149,7 +153,8 @@ func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetR
 	go m.processUploadDatasetRequest(req, op, ds)
 
 	// return Operation
-	return 200, &UploadDatasetResponse{
+	return http.StatusOK, &UploadDatasetResponse{
 		OperationUrl: fmt.Sprintf("/operation/%d", op.Id),
+		Code: http.StatusOK,
 	}
 }

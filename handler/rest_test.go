@@ -2,12 +2,12 @@ package handler_test
 
 import (
 	"bytes"
-	"testing"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"encoding/json"
-	"math/rand"
+	"testing"
 
 	"github.com/dantespe/spectacle/handler"
 	"github.com/dantespe/spectacle/manager"
@@ -15,15 +15,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
-func GetRouter() (*gin.Engine) {
+func GetRouter() *gin.Engine {
 	router := gin.Default()
 	rg := router.Group("rest")
 	handler.AddRestHandlerRoutes(rg)
 	return router
 }
 
-func BuffFromRequest(t *testing.T, req interface{}) (*bytes.Buffer) {
+func BuffFromRequest(t *testing.T, req interface{}) *bytes.Buffer {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(req); err != nil {
 		t.Fatalf("failed to encode request (%v) to json: %v", req, err)
@@ -43,18 +42,18 @@ func TestStatus(t *testing.T) {
 
 func TestCreateDataset(t *testing.T) {
 	tests := []struct {
-		desc	string
-		req *manager.CreateDatasetRequest
+		desc          string
+		req           *manager.CreateDatasetRequest
 		exDisplayName string
 	}{
 		{
-			desc: "untitled",
-			req: &manager.CreateDatasetRequest{},
+			desc:          "untitled",
+			req:           &manager.CreateDatasetRequest{},
 			exDisplayName: "untitled-1",
 		},
 		{
-			desc: "untitled_again",
-			req: &manager.CreateDatasetRequest{},
+			desc:          "untitled_again",
+			req:           &manager.CreateDatasetRequest{},
 			exDisplayName: "untitled-2",
 		},
 		{
@@ -139,7 +138,7 @@ func TestGetDataset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to build http request with err: %v", err)
 	}
-	
+
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -157,7 +156,7 @@ func TestGetDataset(t *testing.T) {
 func TestListDatasets(t *testing.T) {
 	router := GetRouter()
 	for i := 0; i < 10; i++ {
-		req, err := http.NewRequest("POST",  "/rest/dataset", nil)
+		req, err := http.NewRequest("POST", "/rest/dataset", nil)
 		if err != nil {
 			t.Fatalf("failed to build new http request with err: %v", err)
 		}
@@ -184,10 +183,10 @@ func TestListDatasets(t *testing.T) {
 }
 
 func TestUploadDataset(t *testing.T) {
-	router := GetRouter() 
+	router := GetRouter()
 
 	// Create a Dataset
-	req, err := http.NewRequest("POST",  "/rest/dataset", nil)
+	req, err := http.NewRequest("POST", "/rest/dataset", nil)
 	if err != nil {
 		t.Fatalf("failed to build new http request with err: %v", err)
 	}
