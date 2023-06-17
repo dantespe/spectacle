@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 
