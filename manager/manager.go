@@ -1,155 +1,233 @@
 package manager
 
 import (
+	"encoding/csv"
 	"fmt"
-	"math/rand"
+	"io"
+	"log"
 	"net/http"
 	"sync"
 
+	"github.com/dantespe/spectacle/cell"
 	"github.com/dantespe/spectacle/dataset"
+	"github.com/dantespe/spectacle/db"
+	"github.com/dantespe/spectacle/header"
 	"github.com/dantespe/spectacle/operation"
+	"github.com/dantespe/spectacle/record"
+)
+
+const (
+	OPERATION_STATE_UNKNOWN = "UNKNOWN"
+	OPERATION_STATE_RUNNING = "RUNNING"
+	OPERATION_STATE_SUCCESS = "SUCCESS"
+	OPERATION_STATE_FAIL    = "FAIL"
 )
 
 // Manager stores all useful things for Spectacle.
 type Manager struct {
-	ds  map[uint64]*dataset.Dataset
-	ops map[uint64]*operation.Operation
-	uds int
 	mu  sync.RWMutex
+	eng *db.Engine
 }
 
 // New creates a new Manager.
 func New() (*Manager, error) {
+	eng, err := db.New(
+		db.WithEnvironment(db.Environment_DEVELOPMENT),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return NewWithEngine(eng)
+}
+
+func NewWithEngine(eng *db.Engine) (*Manager, error) {
+	if eng == nil {
+		return nil, fmt.Errorf("eng must be non-nil")
+	}
 	return &Manager{
-		ds:  make(map[uint64]*dataset.Dataset),
-		ops: make(map[uint64]*operation.Operation),
-		// one-based indexing on DisplayName
-		uds: 1,
+		eng: eng,
 	}, nil
 }
 
 // Status returns the status of the server.
 func (m *Manager) Status() (int, *StatusResponse) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	return http.StatusOK, &StatusResponse{
-		NumRecords: len(m.ds),
-		Status:     "HEALTHY",
-		Code:       http.StatusOK,
+		Status: "HEALTHY",
+		Code:   http.StatusOK,
 	}
 }
 
 // CreateDataset atomically creates a dataset.
 func (m *Manager) CreateDataset(req *CreateDatasetRequest) (int, *CreateDatasetResponse) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// TODO: Add Maxmium number of retries (10).
-	// Attempt to get a Unique ID
-	for {
-		id := rand.Uint64()
-		if _, ok := m.ds[id]; !ok {
-			ds, err := dataset.New(
-				dataset.WithId(id),
-				dataset.WithDisplayName(req.DisplayName),
-				dataset.WithHasHeaders(req.HasHeaders),
-			)
-			if err != nil {
-				return http.StatusBadRequest, &CreateDatasetResponse{
-					Message: err.Error(),
-				}
-			}
-			// Set DisplayName
-			m.uds = ds.SetUntitledDisplayName(m.uds)
-			m.ds[id] = ds
-
-			return http.StatusCreated, &CreateDatasetResponse{
-				DatasetUrl:  fmt.Sprintf("/dataset/%d", id),
-				DatasetId:   id,
-				DisplayName: ds.DisplayName,
-			}
+	ds, err := dataset.New(m.eng, dataset.WithDisplayName(req.DisplayName))
+	if err != nil {
+		log.Println(err)
+		return http.StatusInternalServerError, &CreateDatasetResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
 		}
+	}
+
+	return http.StatusCreated, &CreateDatasetResponse{
+		DatasetUrl:  fmt.Sprintf("/dataset/%d", ds.DatasetId),
+		DatasetId:   ds.DatasetId,
+		DisplayName: ds.DisplayName,
+		Code:        http.StatusCreated,
 	}
 }
 
 func (m *Manager) GetDataset(req *GetDatasetRequest) (int, *GetDatasetResponse) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	ds, ok := m.ds[req.DatasetId]
-	if !ok {
-		return http.StatusNotFound, &GetDatasetResponse{
-			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
-			Code:    http.StatusNotFound,
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Query for Dataset failed with error: %v", err)
+		return http.StatusInternalServerError, &GetDatasetResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
 		}
 	}
+
 	return http.StatusOK, &GetDatasetResponse{
-		Dataset: ds.Copy(),
 		Code:    http.StatusOK,
+		Dataset: ds,
 	}
 }
 
 func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResponse) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	resp := &ListDatasetsResponse{
 		Results:       []*dataset.Dataset{},
 		TotalDatasets: 0,
+		Code:          http.StatusOK,
 	}
-	for _, ds := range m.ds {
-		if ds != nil {
-			resp.Results = append(resp.Results, ds.Copy())
+
+	td, err := dataset.TotalDatasets(m.eng)
+	if err != nil {
+		log.Printf("Failed to get total number of datasets with error: %v", err)
+		return http.StatusInternalServerError, &ListDatasetsResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
 		}
 	}
-	resp.TotalDatasets = len(resp.Results)
+	resp.TotalDatasets = td
+
+	// Add Datasets to Result
+	results, err := dataset.GetDatasets(m.eng, req.MaxDatasets)
+	if err != nil {
+		log.Printf("Failed to get datasets with error: %v", err)
+		return http.StatusInternalServerError, &ListDatasetsResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+	resp.Results = results
+
 	return http.StatusOK, resp
 }
 
-func (m *Manager) createUniqueOperation() *operation.Operation {
+func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operation, ds *dataset.Dataset) {
+	if err := op.MarkRunning(); err != nil {
+		log.Printf("MarkRunning failed with error: %v", err)
+		return
+	}
+
+	headers, err := header.GetHeaders(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to load headers into memory: %v", err))
+	}
+
+	// 2) Process Each Row in the CSV
+	reader := csv.NewReader(req.InputFile)
+	reader.ReuseRecord = true
 	for {
-		id := rand.Uint64()
-		if _, ok := m.ops[id]; !ok {
-			op, err := operation.New(id)
-			if err == nil {
-				m.ops[id] = op
-				return op
+		rawRecord, err := reader.Read()
+
+		// Unexpected Error
+		if err != nil && err != io.EOF {
+			log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+			op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
+		}
+
+		// EOF, wait until all threads have finished
+		if err == io.EOF {
+			break
+		}
+
+		// Create Headers
+		if !ds.HeadersSet {
+			for _ = range rawRecord {
+				header, err := header.New(m.eng, req.DatasetId)
+				if err != nil {
+					log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+					op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
+				}
+				headers = append(headers, header)
+			}
+
+			if ds.SetHeaders(true); err != nil {
+				log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+				op.MarkFailed(fmt.Sprintf("Got unexpected error setting headers: %v", err))
 			}
 		}
-	}
-}
 
-func (m *Manager) processUploadDatasetRequest(req *UploadDatasetRequest, op *operation.Operation, ds *dataset.Dataset) {
-	op.MarkRunning()
-	err := ds.Upload(req.InputFile)
-	if err != nil {
-		op.MarkFailed(err.Error())
-	} else {
-		op.MarkCompleted()
+		record, err := record.New(m.eng, req.DatasetId)
+		if err != nil {
+			log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+			op.MarkFailed(fmt.Sprintf("Failed to create new record with error: %v", err))
+		}
+
+		idx := 0
+		for _, rv := range rawRecord {
+			// Extend Headers if needed
+			if idx >= len(headers) {
+				header, err := header.New(m.eng, req.DatasetId)
+				if err != nil {
+					log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+					op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
+				}
+				headers = append(headers, header)
+			}
+			if _, err := cell.New(m.eng, record.RecordId, headers[idx].HeaderId, op.OperationId, rv); err != nil {
+				log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+				op.MarkFailed(fmt.Sprintf("Failed to create a cell: %v", err))
+			}
+			idx++
+		}
 	}
+
+	op.MarkSuccess()
 }
 
 func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetResponse) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Query DatasetId
-	ds, ok := m.ds[req.DatasetId]
-	if !ok {
-		return http.StatusNotFound, &UploadDatasetResponse{
-			Message: fmt.Sprintf("failed to find dataset: %d", req.DatasetId),
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Query for Dataset failed with error: %v", err)
+		return http.StatusInternalServerError, &UploadDatasetResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
 		}
 	}
 
-	// Create Operation
-	op := m.createUniqueOperation()
+	if ds == nil {
+		return http.StatusNotFound, &UploadDatasetResponse{
+			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
+			Code:    http.StatusNotFound,
+		}
+	}
 
-	// Non-blocking uploadDatasetRequset
-	go m.processUploadDatasetRequest(req, op, ds)
+	op, err := operation.New(m.eng)
+	if err != nil {
+		log.Printf("Failed to build create operation statement with error: %v", err)
+		return http.StatusInternalServerError, &UploadDatasetResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
 
-	// return Operation
-	return 200, &UploadDatasetResponse{
-		OperationUrl: fmt.Sprintf("/operation/%d", op.Id),
+	go m.processUpload(req, op, ds)
+
+	// Return Operation
+	return http.StatusOK, &UploadDatasetResponse{
+		OperationUrl: fmt.Sprintf("/operation/%d", op.OperationId),
+		Code:         http.StatusOK,
 	}
 }
