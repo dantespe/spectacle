@@ -1,0 +1,59 @@
+{{define "visualize_nav"}}
+<div class="col-auto px-0">
+    <div id="sidebar" class="collapse collapse-horizontal show just-padding">
+        <div class="offcanvas-body px-0">
+            <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-start" id="menu">
+                <li>
+                    <a href="#submenu1" data-bs-toggle="collapse" class="nav-link px-0 align-middle">
+                        <i class="fs-5 bi-grid"></i> <span class="ms-1 d-none d-sm-inline">Create</span>
+                    </a>
+                    <ul class="collapse nav flex-column ms-1" id="submenu1" data-bs-parent="#menu">
+                        <li class="w-100">
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Template</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Chart</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Summary</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Story</span></a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#submenu2" data-bs-toggle="collapse" class="nav-link text-truncate px-0">
+                        <i class="bi bi-tools"></i><span class="ms-1 d-none d-sm-inline">Experiment</span> </a>
+                </li>
+                <li>
+                    <a href="#submenu3" data-bs-toggle="collapse" class="nav-link px-0 align-middle">
+                        <i class="bi bi-speedometer"></i><span class="ms-1 d-none d-sm-inline">Measure</span></a>
+                        <ul class="collapse nav flex-column ms-1" id="submenu3" data-bs-parent="#menu">
+                        <li class="w-100">
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Progress</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Usage</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Latency</span></a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-link px-0"> <span class="d-none d-sm-inline">Other</span></a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#" class="nav-link text-truncate px-0">
+                        <i class="bi bi-window"></i><span class="ms-1 d-none d-sm-inline">Dashboard</span></a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "vis_nav_connector"}}
+<a href="#" data-bs-target="#sidebar" data-bs-toggle="collapse" class="border rounded-3 p-1 text-decoration-none"><i class="bi bi-list bi-lg py-2 p-1"></i>Menu</a>
+{{end}}

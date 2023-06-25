@@ -53,10 +53,6 @@ func (u *UIHandler) Index(c *gin.Context) {
 	})
 }
 
-func (u *UIHandler) Starter(c *gin.Context) {
-	c.HTML(http.StatusOK, "get_started.html", nil)
-}
-
 func (u *UIHandler) MakeDataset(c *gin.Context) {
 	datasetName, _ := c.MultipartForm()
 	var fileName string
@@ -155,20 +151,19 @@ func (u *UIHandler) Settings(c *gin.Context) {
 	c.HTML(http.StatusOK, "settings.html", nil)
 }
 
-func (u *UIHandler) Visualizations(c *gin.Context) {
-	c.HTML(http.StatusOK, "visualizations.html", nil)
+func (u *UIHandler) Visualize(c *gin.Context) {
+	c.HTML(http.StatusOK, "visualize.html", nil)
 }
 
 func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/":                 u.Index,
-		"/get_started":      u.Starter,
 		"/create_chart":     u.CreateChart,
 		"/create_dashboard": u.CreateDashboard,
 		"/create_summary":   u.CreateSummary,
 		"/create_dataset":   u.ImportData,
 		"/edit_dataset":     u.EditData,
-		"/visualizations":   u.Visualizations,
+		"/visualize":        u.Visualize,
 		"/share":            u.Share,
 		"/settings":         u.Settings,
 	}

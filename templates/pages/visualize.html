@@ -2,7 +2,7 @@
 {{template "top" .}}
     <div class="container-fluid">
         <div class="row flex-nowrap">
-        {template "visualize_nav" .}
+        {{template "visualize_nav" .}}
         <main class="col ps-md-2 pt-2">
             {{template "vis_nav_connector" .}}
             <div class="page-header pt-3">
@@ -19,13 +19,4 @@
         </main>
         </div>
     </div>
-    <script type="text/Javascript">
-        $(function() {
-            $('.list-group-item').on('click', function() {
-                $('.glyphicon', this)
-                .toggleClass('glyphicon-chevron-right')
-                .toggleClass('glyphicon-chevron-down');
-            });
-        });
-    </script>
 {{template "bottom" .}}
