@@ -8,7 +8,6 @@
         <th scope="col" width="35%">ID</th>
         <th scope="col" width="35%">Display Name</th>
         <th scope="col" width="20%">Row Count</th>
-        <th scope="col" width="10%">Headers</th>
     </tr>
     </thead>
     <!-- Table footer -->
@@ -21,10 +20,9 @@
     <tbody>
     {{ range .datasets }}
     <tr>
-        <td>{{ .Id }}</td>
+        <td>{{ .DatasetId }}</td>
         <td>{{ .DisplayName }}</td>
         <td>{{ .NumRecords }}</td>
-        <td>{{ .HasHeaders }}</td>
     </tr>
     {{ end }}
     </tbody>

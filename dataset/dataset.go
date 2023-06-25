@@ -2,63 +2,74 @@
 package dataset
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
-	"sync"
+
+	"github.com/dantespe/spectacle/db"
 )
 
 // Dataset contains all logic for managing data in Spectacle.
 type Dataset struct {
-	// Id of the dataset.
-	Id uint64 `json:"datasetId"`
+	// DatasetId of the dataset.
+	DatasetId int64 `json:"datasetId"`
 
-	// DisplayName of Datast.
+	// DisplayName of Dataset.
 	DisplayName string `json:"displayName"`
 
-	// Number of Records (Rows) in the dataset.
-	NumRecords uint64 `json:"numRecords"`
+	// NumRecords in the dataset.
+	NumRecords int64 `json:"numRecords"`
 
-	// HasHeaders means the data has named columns. We should
-	// read the first column and use that row as the headers.
-	// Default: true
-	HasHeaders bool `json:"hasHeaders"`
-	headersSet bool
-	headers    []string
+	// HeadersSet
+	HeadersSet bool `json:"headersSet"`
 
-	// Data
-	// this will also be stored in the database
-	data [][]string
-
-	// Maximum number of threads to run when importing data.
-	// Default: 1000
-	maxThreads int
-	twg        sync.WaitGroup
-
-	// Lock
-	mu sync.RWMutex
+	eng *db.Engine
 }
 
 // Option for creating new Datasets.
 type Option func(*Dataset)
 
-// New creats a new Dataset with the given options.
-func New(opts ...Option) (*Dataset, error) {
-	ds, err := Default()
-	if err != nil {
-		return nil, err
+// New creates a new Dataset with the given options.
+func New(eng *db.Engine, opts ...Option) (*Dataset, error) {
+	if eng == nil {
+		return nil, fmt.Errorf("eng must be non-nil")
+	}
+
+	// Create Dataset based on our options
+	ds := &Dataset{
+		HeadersSet: false,
+		eng:        eng,
 	}
 	for _, o := range opts {
 		o(ds)
 	}
-	return ds, nil
-}
 
-// Returns an Option with the Id set.
-func WithId(id uint64) Option {
-	return func(ds *Dataset) {
-		ds.Id = id
+	// Insert Dataset into DB and update the ds Id
+	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Datasets(DisplayName, HeadersSet) VALUES(?, FALSE)")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Datasets prepared statement with error: %v", err)
 	}
+	res, err := stmt.Exec(ds.DisplayName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert into Datasets table with error: %v", err)
+	}
+
+	ds.DatasetId, err = res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query DatasetId with error: %v", err)
+	}
+
+	// Update DisplayName to untitled-<datatsetId> if unset
+	if ds.DisplayName == "" {
+		ds.DisplayName = fmt.Sprintf("untitled-%d", ds.DatasetId)
+		stmt, err := eng.DatabaseHandle.Prepare("UPDATE Datasets SET DisplayName = ? WHERE DatasetId = ?")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Datasets prepared statement with error: %v", err)
+		}
+		_, err = stmt.Exec(ds.DisplayName, ds.DatasetId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert into Datasets table with error: %v", err)
+		}
+	}
+	return ds, nil
 }
 
 // Returns an Option with the DisplayName set.
@@ -68,136 +79,109 @@ func WithDisplayName(displayName string) Option {
 	}
 }
 
-// Returns an Option with HasHeaders set.
-func WithHasHeaders(hasHeaders bool) Option {
-	return func(ds *Dataset) {
-		ds.HasHeaders = hasHeaders
+func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
+	if eng == nil {
+		return nil, fmt.Errorf("eng must be non-nil")
 	}
-}
 
-// Returns an Option with maxImportThreads set.
-func WithMaxImportThreads(n int) Option {
-	return func(ds *Dataset) {
-		ds.maxThreads = n
+	// Get Dataset
+	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet FROM Datasets WHERE DatasetId = ?", datasetId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for datasetId with error: %v", err)
 	}
-}
+	defer rows.Close()
 
-// NewWithId builds a Dataset with the provided Id.
-func NewWithId(id uint64) (*Dataset, error) {
-	ds, _ := Default()
-	ds.Id = id
+	// 404: We did not find the dataset with datasetId
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	// Set DisplayName, HeadersSet
+	ds := &Dataset{
+		DatasetId: datasetId,
+		eng:       eng,
+	}
+	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet); err != nil {
+		return nil, fmt.Errorf("failed to Scan(displayName) for dataset with error: %v", err)
+	}
+
+	// Count Number of Records
+	rows2, err := eng.DatabaseHandle.Query("SELECT COUNT(*) FROM Records WHERE DatasetId = ?", datasetId)
+	defer rows2.Close()
+	if rows2.Next() {
+		if err := rows2.Scan(&ds.NumRecords); err != nil {
+			return nil, fmt.Errorf("failed to Scan(NumRecords) for dataset with error: %v", err)
+		}
+	}
 	return ds, nil
 }
 
-// Default returns an initialized Dataset.
-func Default() (*Dataset, error) {
-	return &Dataset{
-		maxThreads: 100,
-		HasHeaders: true,
-		headersSet: false,
-		headers:    make([]string, 0),
-	}, nil
-}
-
-// Shallow copy of the dataset. This can be used
-// for thread-safe printing of the Dataset.
-func (d *Dataset) Copy() *Dataset {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	return &Dataset{
-		Id:          d.Id,
-		DisplayName: d.DisplayName,
-		NumRecords:  d.NumRecords,
-	}
-}
-
-// Equal returns a bool, string of if two datasets are equal and a diff.
-func (d *Dataset) Equal(other *Dataset) (bool, string) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	other.mu.RLock()
-	defer other.mu.RUnlock()
-
-	if other == nil {
-		return false, "other is nil"
-	}
-	if d.Id != other.Id {
-		return false, fmt.Sprintf("Id: %d vs %d", d.Id, other.Id)
-	}
-	if d.DisplayName != other.DisplayName {
-		return false, fmt.Sprintf("DisplayName: %s vs %s", d.DisplayName, other.DisplayName)
-	}
-	if d.HasHeaders != other.HasHeaders {
-		return false, fmt.Sprintf("HasHeaders: %v vs %v", d.HasHeaders, other.HasHeaders)
-	}
-	if d.NumRecords != other.NumRecords {
-		return false, fmt.Sprintf("NumRecords: %d vs %d", d.NumRecords, other.NumRecords)
-	}
-	return true, ""
-}
-
-func (d *Dataset) processHeader(reader *csv.Reader) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	// We already have process the headers or this
-	// dataset doesn't have headers
-	if d.headersSet || !d.HasHeaders {
-		return nil
+func TotalDatasets(eng *db.Engine) (int64, error) {
+	if eng == nil {
+		return 0, fmt.Errorf("eng must be non-nil")
 	}
 
-	record, err := reader.Read()
+	row, err := eng.DatabaseHandle.Query("SELECT COUNT(*) FROM Datasets")
+	defer row.Close()
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to get COUNT(*) from datasets with error: %v", err)
 	}
-	for _, r := range record {
-		d.headers = append(d.headers, r)
+	if !row.Next() {
+		return 0, nil
 	}
-	d.headersSet = true
-	return nil
+
+	var result int64
+	err = row.Scan(&result)
+	return result, err
 }
 
-// TODO make this do something
-func (d *Dataset) addRecord(record []string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.NumRecords++
-	return nil
-}
+func GetDatasets(eng *db.Engine, maxDatasets int64) ([]*Dataset, error) {
+	if eng == nil {
+		return nil, fmt.Errorf("eng must be non-nil")
+	}
 
-func (d *Dataset) Upload(r io.Reader) error {
-	reader := csv.NewReader(r)
-	d.processHeader(reader)
-	wg := sync.WaitGroup{}
-	for {
-		record, err := reader.Read()
-		// Unexpected Error
-		if err != nil && err != io.EOF {
-			return err
+	if maxDatasets <= 0 {
+		maxDatasets = 100
+	}
+
+	rows, err := eng.DatabaseHandle.Query("SELECT DatasetId, DisplayName FROM Datasets ORDER BY DatasetId LIMIT ?", maxDatasets)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for datasetId with error: %v", err)
+	}
+	defer rows.Close()
+
+	var results []*Dataset
+	for rows.Next() {
+		var datasetId int64
+		var displayName string
+		if err := rows.Scan(&datasetId, &displayName); err != nil {
+			return nil, fmt.Errorf("failed to Scan(DatasetId, DisplayName) for dataset with error: %v", err)
 		}
-		// EOF, wait until all threads have finished
-		if err == io.EOF {
-			break
-		}
-
-		// Synchronously read this record
-		wg.Add(1)
-		go func() {
-			d.addRecord(record)
-			wg.Done()
-		}()
+		results = append(results, &Dataset{
+			DatasetId:   datasetId,
+			DisplayName: displayName,
+			eng:         eng,
+		})
 	}
-	wg.Wait()
-	return nil
+	return results, nil
 }
 
-// SetUntitledDisplayName sets the DisplayName to untitled-{n} if displayName is empty.
-// Increments counter if the Dataset is untitled.
-func (d *Dataset) SetUntitledDisplayName(u int) int {
-	if d.DisplayName == "" {
-		d.DisplayName = fmt.Sprintf("untitled-%d", u)
-		return u + 1
+func (d *Dataset) SetHeaders(headers bool) error {
+	if d.eng == nil {
+		return fmt.Errorf("eng must be non-nil")
 	}
-	return u
+	r := "TRUE"
+	if !headers {
+		r = "FALSE"
+	}
+	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET HeadersSet = ? WHERE DatasetId = ?")
+	if err != nil {
+		return fmt.Errorf("failed to create update Datasets prepared statement with error: %v", err)
+	}
+	_, err = stmt.Exec(r, d.DatasetId)
+	if err != nil {
+		return fmt.Errorf("failed to update into Datasets table with error: %v", err)
+	}
+	d.HeadersSet = headers
+	return nil
 }
