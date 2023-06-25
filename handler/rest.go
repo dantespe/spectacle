@@ -14,16 +14,22 @@ type RestHandler struct {
 	rb  *manager.RequestBuilder
 }
 
-func NewRestHandler() *RestHandler {
-	mgr, _ := manager.New()
+func newRestHandler() (*RestHandler, error) {
+	mgr, err := manager.New()
+	if err != nil {
+		return nil, err
+	}
 	return &RestHandler{
 		mgr: mgr,
 		rb:  &manager.RequestBuilder{},
-	}
+	}, nil
 }
 
 func AddRestHandlerRoutes(rg *gin.RouterGroup) error {
-	rh := NewRestHandler()
+	rh, err := newRestHandler()
+	if err != nil {
+		return err
+	}
 	for k, v := range rh.GetRoutes() {
 		rg.GET(k, v)
 	}
@@ -54,7 +60,6 @@ func (h *RestHandler) GetDataset(c *gin.Context) {
 		})
 		return
 	}
-
 	c.JSON(h.mgr.GetDataset(req))
 }
 

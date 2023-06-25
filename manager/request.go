@@ -24,11 +24,11 @@ func (*RequestBuilder) CreateDatasetRequestBuilder(c *gin.Context) (*CreateDatas
 
 // GetDatasetRequest
 type GetDatasetRequest struct {
-	DatasetId uint64 `json:"datasetId"`
+	DatasetId int64 `json:"datasetId"`
 }
 
 func (*RequestBuilder) GetDatasetRequestBuilder(c *gin.Context) (*GetDatasetRequest, error) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,14 @@ func newListDatasetsRequest() *ListDatasetsRequest {
 // UploadDatasetRequest
 type UploadDatasetRequest struct {
 	// DatasetId
-	DatasetId uint64 `json:"datasetId"`
+	DatasetId int64 `json:"datasetId"`
 
 	// InputFile
 	InputFile io.Reader `json:"-"`
 }
 
 func (*RequestBuilder) UploadDatasetRequestBuilder(c *gin.Context) (*UploadDatasetRequest, error) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return nil, err
 	}
