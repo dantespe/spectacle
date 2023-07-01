@@ -17,22 +17,13 @@ func New(eng *db.Engine, recordId int64, headerId int64, operationId int64, rv s
 	if eng == nil {
 		return nil, fmt.Errorf("cannot create a new Header with nil db.Engine")
 	}
-	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Cells(RecordId, HeaderId, OperationId, RawValue) VALUES(?, ?, ?, ?)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to build Cells PrepareStatement with error: %v", err)
-	}
-	res, err := stmt.Exec(recordId, headerId, operationId, rv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert into Cells table with error: %v", err)
-	}
-	cellId, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retreive CellId with error: %v", cellId)
-	}
-	return &Cell{
-		CellId:   cellId,
+	c := &Cell{
 		recordId: recordId,
 		headerId: headerId,
 		eng:      eng,
-	}, nil
+	}
+	if err := eng.DatabaseHandle.QueryRow("INSERT INTO Cells(RecordId, HeaderId, OperationId, RawValue) VALUES($1, $2, $3, $4) RETURNING CellId", recordId, headerId, operationId, rv).Scan(&c.CellId); err != nil {
+		return nil, fmt.Errorf("failed to create Cell with error: %v", err)
+	}
+	return c, nil
 }

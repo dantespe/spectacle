@@ -26,24 +26,17 @@ func New(eng *db.Engine, datasetId int64) (*Header, error) {
 	if eng == nil {
 		return nil, fmt.Errorf("cannot create a new Header with nil db.Engine")
 	}
-	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Headers(DatasetId, ValueType, DisplayName) VALUES(?, ?, ?)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
-	}
-	res, err := stmt.Exec(datasetId, ValueType_RAW, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert into Headers table with error: %v", err)
-	}
-	headerId, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retreive HeaderId with error: %v", headerId)
-	}
-	return &Header{
-		HeaderId:  headerId,
+
+	h := &Header{
 		datasetId: datasetId,
 		valueType: ValueType_RAW,
 		eng:       eng,
-	}, nil
+	}
+
+	if err := eng.DatabaseHandle.QueryRow("INSERT INTO Headers(DatasetId, ValueType, DisplayName) VALUES($1, $2, $3) RETURNING HeaderId", datasetId, ValueType_RAW, "").Scan(&h.HeaderId); err != nil {
+		return nil, fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
+	}
+	return h, nil
 }
 
 func GetHeaders(eng *db.Engine, datasetId int64) ([]*Header, error) {
@@ -52,25 +45,20 @@ func GetHeaders(eng *db.Engine, datasetId int64) ([]*Header, error) {
 	}
 
 	var results []*Header
-	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType FROM Headers WHERE DatasetId = ? ORDER BY HeaderId", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType FROM Headers WHERE DatasetId = $1 ORDER BY HeaderId", datasetId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get headers(datasetId=%d) with error: %v", datasetId, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var headerId int64
-		var valueType ValueType
-		if err := rows.Scan(&headerId, &valueType); err != nil {
+		h := &Header{
+			eng: eng,
+		}
+		if err := rows.Scan(&h.HeaderId, &h.valueType); err != nil {
 			return nil, fmt.Errorf("failed to Headers Scan with error: %v", err)
 		}
-		results = append(results, &Header{
-			HeaderId:    headerId,
-			datasetId:   datasetId,
-			displayName: "",
-			valueType:   valueType,
-			eng:         eng,
-		})
+		results = append(results, h)
 	}
 	return results, nil
 }

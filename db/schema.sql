@@ -1,45 +1,43 @@
-CREATE TABLE IF NOT EXISTS Datasets (
-    DatasetId INTEGER PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS Datasets(
+    DatasetId SERIAL,
     DisplayName TEXT NOT NULL,
-    HeadersSet INT NOT NULL
+    HeadersSet INT NOT NULL,
+    PRIMARY KEY (DatasetId)
 );
 
-CREATE TABLE IF NOT EXISTS Headers (
-    HeaderId INTEGER PRIMARY KEY,
-    DatasetId INTEGER NOT NULL,
-    ColumnIndex INTEGER, -- UNUSED
+CREATE TABLE IF NOT EXISTS Headers(
+    HeaderId SERIAL,
+    DatasetId INTEGER REFERENCES Datasets(DatasetId),
+    ColumnIndex SERIAL,
     DisplayName TEXT,
     ValueType TEXT NOT NULL,
-    UNIQUE (DatasetId, ColumnIndex),
-    FOREIGN KEY(DatasetId) REFERENCES Datasets(DatasetId)
+    PRIMARY KEY (HeaderId)
 );
 
 CREATE TABLE IF NOT EXISTS Records (
-    RecordId INTEGER PRIMARY KEY,
-    DatasetId INTEGER NOT NULL,
+    RecordId SERIAL,
+    DatasetId INTEGER REFERENCES Datasets(DatasetId),
     DatasetIndex INTEGER, -- UNUSED
-    UNIQUE (DatasetId, DatasetIndex),
-    FOREIGN KEY(DatasetId) REFERENCES Datasets(DatasetId)
+    PRIMARY KEY (RecordId)
 );
 
 CREATE TABLE IF NOT EXISTS Operations (
-    OperationId INTEGER PRIMARY KEY,
+    OperationId SERIAL,
     OperationStatus TEXT NOT NULL,
     ErrorMessage TEXT,
-    CreationTime DATETIME DEFAULT CURRENT_TIMESTAMP
+    CreationTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (OperationId)
 );
 
 CREATE TABLE IF NOT EXISTS Cells (
-    CellId INTEGER PRIMARY KEY,
-    RecordId INTEGER NOT NULL,
-    HeaderId INTEGER NOT NULL,
-    OperationId INTEGER NOT NULL,
+    CellId SERIAL,
+    RecordId INTEGER REFERENCES Records(RecordId),
+    HeaderId INTEGER REFERENCES Headers(HeaderId),
+    OperationId INTEGER REFERENCES Operations(OperationId),
     RawValue TEXT,
     IntValue INTEGER,
     FloatValue FLOAT,
     UNIQUE (HeaderId, RecordId),
-    FOREIGN KEY(RecordId) REFERENCES Records(RecordId),
-    FOREIGN KEY(HeaderId) REFERENCES Headers(HeaderId),
-    FOREIGN KEY(OperationId) REFERENCES Operation(OperationId)
+    PRIMARY KEY (CellId)
 );
 

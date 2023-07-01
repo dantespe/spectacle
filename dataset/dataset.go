@@ -36,6 +36,7 @@ func New(eng *db.Engine, opts ...Option) (*Dataset, error) {
 	// Create Dataset based on our options
 	ds := &Dataset{
 		HeadersSet: false,
+		NumRecords: 0,
 		eng:        eng,
 	}
 	for _, o := range opts {
@@ -43,24 +44,15 @@ func New(eng *db.Engine, opts ...Option) (*Dataset, error) {
 	}
 
 	// Insert Dataset into DB and update the ds Id
-	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Datasets(DisplayName, HeadersSet) VALUES(?, FALSE)")
+	err := eng.DatabaseHandle.QueryRow("INSERT INTO Datasets (DisplayName, HeadersSet) VALUES ($1, 0) RETURNING DatasetId", ds.DisplayName).Scan(&ds.DatasetId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Datasets prepared statement with error: %v", err)
-	}
-	res, err := stmt.Exec(ds.DisplayName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert into Datasets table with error: %v", err)
-	}
-
-	ds.DatasetId, err = res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to query DatasetId with error: %v", err)
+		return nil, fmt.Errorf("failed to create Dataset with error: %v", err)
 	}
 
 	// Update DisplayName to untitled-<datatsetId> if unset
 	if ds.DisplayName == "" {
 		ds.DisplayName = fmt.Sprintf("untitled-%d", ds.DatasetId)
-		stmt, err := eng.DatabaseHandle.Prepare("UPDATE Datasets SET DisplayName = ? WHERE DatasetId = ?")
+		stmt, err := eng.DatabaseHandle.Prepare("UPDATE Datasets SET DisplayName = $1 WHERE DatasetId = $2")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Datasets prepared statement with error: %v", err)
 		}
@@ -85,34 +77,30 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 	}
 
 	// Get Dataset
-	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet FROM Datasets WHERE DatasetId = ?", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet FROM Datasets WHERE DatasetId = $1", datasetId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query for datasetId with error: %v", err)
+		return nil, fmt.Errorf("failed to query for dataset with error: %v", err)
 	}
 	defer rows.Close()
-
-	// 404: We did not find the dataset with datasetId
-	if !rows.Next() {
-		return nil, nil
-	}
-
-	// Set DisplayName, HeadersSet
 	ds := &Dataset{
 		DatasetId: datasetId,
 		eng:       eng,
 	}
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	// 404: We did not find the dataset given datasetId
 	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet); err != nil {
-		return nil, fmt.Errorf("failed to Scan(displayName) for dataset with error: %v", err)
+		return nil, nil
 	}
 
 	// Count Number of Records
-	rows2, err := eng.DatabaseHandle.Query("SELECT COUNT(*) FROM Records WHERE DatasetId = ?", datasetId)
-	defer rows2.Close()
-	if rows2.Next() {
-		if err := rows2.Scan(&ds.NumRecords); err != nil {
-			return nil, fmt.Errorf("failed to Scan(NumRecords) for dataset with error: %v", err)
-		}
+	row := eng.DatabaseHandle.QueryRow("SELECT COUNT(*) FROM Records WHERE DatasetId = $1", datasetId)
+	if err := row.Scan(&ds.NumRecords); err != nil {
+		return ds, fmt.Errorf("got error for COUNT(*) with error: %v", err)
 	}
+
 	return ds, nil
 }
 
@@ -121,18 +109,12 @@ func TotalDatasets(eng *db.Engine) (int64, error) {
 		return 0, fmt.Errorf("eng must be non-nil")
 	}
 
-	row, err := eng.DatabaseHandle.Query("SELECT COUNT(*) FROM Datasets")
-	defer row.Close()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get COUNT(*) from datasets with error: %v", err)
-	}
-	if !row.Next() {
-		return 0, nil
-	}
-
 	var result int64
-	err = row.Scan(&result)
-	return result, err
+	row := eng.DatabaseHandle.QueryRow("SELECT COUNT(*) FROM Datasets")
+	if err := row.Scan(&result); err != nil {
+		return 0, fmt.Errorf("got error for COUNT(*) with error: %v", err)
+	}
+	return result, nil
 }
 
 func GetDatasets(eng *db.Engine, maxDatasets int64) ([]*Dataset, error) {
@@ -144,13 +126,13 @@ func GetDatasets(eng *db.Engine, maxDatasets int64) ([]*Dataset, error) {
 		maxDatasets = 100
 	}
 
-	rows, err := eng.DatabaseHandle.Query("SELECT DatasetId, DisplayName FROM Datasets ORDER BY DatasetId LIMIT ?", maxDatasets)
+	rows, err := eng.DatabaseHandle.Query("SELECT DatasetId, DisplayName FROM Datasets ORDER BY DatasetId LIMIT $1", maxDatasets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for datasetId with error: %v", err)
 	}
 	defer rows.Close()
 
-	var results []*Dataset
+	results := make([]*Dataset, 0)
 	for rows.Next() {
 		var datasetId int64
 		var displayName string
@@ -170,15 +152,16 @@ func (d *Dataset) SetHeaders(headers bool) error {
 	if d.eng == nil {
 		return fmt.Errorf("eng must be non-nil")
 	}
-	r := "TRUE"
+
+	h := 1
 	if !headers {
-		r = "FALSE"
+		h = 0
 	}
-	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET HeadersSet = ? WHERE DatasetId = ?")
+	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET HeadersSet = $1 WHERE DatasetId = $2")
 	if err != nil {
 		return fmt.Errorf("failed to create update Datasets prepared statement with error: %v", err)
 	}
-	_, err = stmt.Exec(r, d.DatasetId)
+	_, err = stmt.Exec(h, d.DatasetId)
 	if err != nil {
 		return fmt.Errorf("failed to update into Datasets table with error: %v", err)
 	}

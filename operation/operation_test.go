@@ -1,7 +1,6 @@
 package operation_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/dantespe/spectacle/operation"
@@ -9,18 +8,18 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
-	o, err := operation.New(eng)
+	o, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("got unexpected error from New(): %s", err)
 	}
-	if o.OperationId != 1 {
-		t.Errorf("got Id %d, wanted: 1", o.OperationId)
+	if o.OperationId == 0 {
+		t.Errorf("got id: 0, wanted: non-zero")
 	}
 
 	if o.OperationStatus != operation.Status_NOT_STARTED {
@@ -29,14 +28,14 @@ func TestNew(t *testing.T) {
 }
 
 func TestMarkedRunning(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
 	// Not Started Op
-	op, err := operation.New(eng)
+	op, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create NOT_STARTED op with err: %v", err)
 	}
@@ -45,7 +44,7 @@ func TestMarkedRunning(t *testing.T) {
 	}
 
 	// Running Op
-	op2, err := operation.New(eng)
+	op2, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create NOT_STARTED op2 with err: %v", err)
 	}
@@ -77,13 +76,13 @@ func TestMarkedRunning(t *testing.T) {
 }
 
 func TestMarkedRunningInvalid(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
-	op, err := operation.New(eng)
+	op, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create operation with err: %v", err)
 	}
@@ -91,7 +90,7 @@ func TestMarkedRunningInvalid(t *testing.T) {
 		t.Fatalf("failed to set status: %v", err)
 	}
 
-	op2, err := operation.New(eng)
+	op2, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create operation with err: %v", err)
 	}
@@ -120,18 +119,18 @@ func TestMarkedRunningInvalid(t *testing.T) {
 }
 
 func TestSuccess(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
-	nsOp, err := operation.New(eng)
+	nsOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
 
-	runOp, err := operation.New(eng)
+	runOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
@@ -139,7 +138,7 @@ func TestSuccess(t *testing.T) {
 		t.Fatalf("failed to set status to running: %v", err)
 	}
 
-	succOp, err := operation.New(eng)
+	succOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
@@ -179,18 +178,18 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestMarkedFailed(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
-	nsOp, err := operation.New(eng)
+	nsOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
 
-	runOp, err := operation.New(eng)
+	runOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
@@ -198,7 +197,7 @@ func TestMarkedFailed(t *testing.T) {
 		t.Fatalf("failed to set status to running: %v", err)
 	}
 
-	succOp, err := operation.New(eng)
+	succOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}
@@ -206,7 +205,7 @@ func TestMarkedFailed(t *testing.T) {
 		t.Fatalf("failed to set status to success: %v", err)
 	}
 
-	fOp, err := operation.New(eng)
+	fOp, err := operation.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create new operation: %v", err)
 	}

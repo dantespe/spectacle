@@ -30,30 +30,23 @@ func New(eng *db.Engine) (*Operation, error) {
 	if eng == nil {
 		return nil, fmt.Errorf("cannot create new operation with nil db.Engine")
 	}
-	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Operations(OperationStatus) VALUES(?)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
-	}
-	res, err := stmt.Exec(Status_NOT_STARTED)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert into Operations table with error: %v", err)
-	}
-	operationId, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retreive operationId with error: %v", operationId)
-	}
-	return &Operation{
-		OperationId:     operationId,
+
+	op := &Operation{
 		OperationStatus: Status_NOT_STARTED,
 		eng:             eng,
-	}, nil
+	}
+
+	if err := eng.DatabaseHandle.QueryRow("INSERT INTO Operations(OperationStatus) VALUES($1) RETURNING OperationId", Status_NOT_STARTED).Scan(&op.OperationId); err != nil {
+		return nil, fmt.Errorf("failed to create operation with error: %v", err)
+	}
+	return op, nil
 }
 
 func (o *Operation) markStatus(st Status, errMsg string) error {
 	if o.eng == nil {
 		return fmt.Errorf("cannot mark status when engine is nil")
 	}
-	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET OperationStatus = ?, ErrorMessage = ? WHERE OperationId = ?")
+	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET OperationStatus = $1, ErrorMessage = $2 WHERE OperationId = $3")
 	if err != nil {
 		return fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
 	}

@@ -32,6 +32,7 @@ type Manager struct {
 // New creates a new Manager.
 func New() (*Manager, error) {
 	eng, err := db.New(
+		db.WithDatabaseProvider(db.DatabaseProvider_POSTGRES),
 		db.WithEnvironment(db.Environment_DEVELOPMENT),
 	)
 	if err != nil {
@@ -83,6 +84,14 @@ func (m *Manager) GetDataset(req *GetDatasetRequest) (int, *GetDatasetResponse) 
 		return http.StatusInternalServerError, &GetDatasetResponse{
 			Message: "INTERNAL SERVER ERROR",
 			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// We should 404, because dataset was not found and err was nil.
+	if ds == nil {
+		return http.StatusNotFound, &GetDatasetResponse{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
 		}
 	}
 
