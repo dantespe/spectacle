@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS Datasets(
     DatasetId SERIAL,
     DisplayName TEXT NOT NULL,
     HeadersSet INT NOT NULL,
+    NumRecords INTEGER, 
     PRIMARY KEY (DatasetId)
 );
 

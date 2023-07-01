@@ -134,3 +134,23 @@ func TestSetDatasets(t *testing.T) {
 		t.Errorf("Got diff: %s, want: ''", DatasetDiff(ds, ds2))
 	}
 }
+
+func TestUpdateNumRecords(t *testing.T) {
+	tmp, err := spectesting.NewTempPostgres()
+	if err != nil {
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
+	}
+	defer tmp.Close()
+
+	ds, err := dataset.New(tmp.Engine)
+	if err != nil {
+		t.Fatalf("failed to create dataset with err: %v", err)
+	}
+
+	if err = ds.UpdateNumRecords(); err != nil {
+		t.Fatalf("got unexpected err on UpdateNumRecords: %v", err)
+	}
+	if ds.NumRecords != 0 {
+		t.Errorf("got NumRecords: %d, want: 0", ds.NumRecords)
+	}
+}

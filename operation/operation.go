@@ -3,6 +3,7 @@ package operation
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/dantespe/spectacle/db"
 )
@@ -19,6 +20,7 @@ const (
 
 // Operation is a class that stores the state of a LRO.
 type Operation struct {
+	mu              sync.Mutex
 	OperationId     int64
 	OperationStatus Status
 	ErrorMessage    string
@@ -61,6 +63,9 @@ func (o *Operation) markStatus(st Status, errMsg string) error {
 
 // MarkRunning sets the OperationStatus to RUNNING.
 func (o *Operation) MarkRunning() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
 	if o.OperationStatus == Status_SUCCESS || o.OperationStatus == Status_FAILED {
 		return fmt.Errorf("cannot mark running on completed operation")
 	}
@@ -69,6 +74,9 @@ func (o *Operation) MarkRunning() error {
 
 // MarkCompleted sets the Status to SUCCESS.
 func (o *Operation) MarkSuccess() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
 	if o.OperationStatus == Status_NOT_STARTED || o.OperationStatus == Status_RUNNING {
 		return o.markStatus(Status_SUCCESS, "")
 	}
@@ -77,5 +85,13 @@ func (o *Operation) MarkSuccess() error {
 
 // MarkFailed sets the Status to Failed.
 func (o *Operation) MarkFailed(msg string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	return o.markStatus(Status_FAILED, msg)
+}
+
+func (o *Operation) Complete() bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.OperationStatus == Status_FAILED || o.OperationStatus == Status_SUCCESS
 }

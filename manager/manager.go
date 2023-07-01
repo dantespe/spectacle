@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/dantespe/spectacle/cell"
 	"github.com/dantespe/spectacle/dataset"
@@ -132,11 +133,33 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 	return http.StatusOK, resp
 }
 
+func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation) {
+	ticker := time.NewTicker(5 * time.Second)
+	timeout := time.NewTicker(4 * time.Hour)
+
+	go func() {
+		for {
+			select {
+			case <-timeout.C:
+				return
+			case <-ticker.C:
+				ds.UpdateNumRecords()
+			}
+		}
+	}()
+
+	for !op.Complete() {
+		time.Sleep(time.Minute)
+	}
+}
+
 func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operation, ds *dataset.Dataset) {
 	if err := op.MarkRunning(); err != nil {
 		log.Printf("MarkRunning failed with error: %v", err)
 		return
 	}
+
+	go m.uploadRecordCount(ds, op)
 
 	headers, err := header.GetHeaders(m.eng, req.DatasetId)
 	if err != nil {
