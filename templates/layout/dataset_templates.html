@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+{{define "add_dataset"}}
+<div class="container-fluid">
+    <form name="select_datasets" action="/create_dataset" method="post" enctype="multipart/form-data">
+            <label for="newFileName">File Name: </label>
+            <input type="text" id="newFileName" name="newFileName" class="form-control" aria-describedby="fileNameBlock">
+            <small id="fileNameBlock" class="form-text text-muted">
+              Your file must be a csv or excel file. File name cannot contain spaces.
+              Upload currently only supports one file at a time.
+            </small>
+            <div class="input-group">
+              <input type="file" class="form-control" id="file" name="file" required>
+            </div>
+        <button type="submit" name="selected_submit">Upload</button>
+    </form>
+</div>
+{{end}}
+
+{{define "edit_dataset"}}
+<div class="container-fluid">
+  <table id="datasetsTable">
+    <!-- Table header -->
+    <thead>
+    <tr>
+        <th scope="col" width="35%">ID</th>
+        <th scope="col" width="35%">Display Name</th>
+        <th scope="col" width="20%">Row Count</th>
+    </tr>
+    </thead>
+    <!-- Table footer -->
+    <tfoot>
+    <tr>
+        <td>END</td>
+    </tr>
+    </tfoot>
+    <!-- Table body -->
+    <tbody>
+    {{ range .datasets }}
+    <tr>
+        <td>{{ .DatasetId }}</td>
+        <td>{{ .DisplayName }}</td>
+        <td>{{ .NumRecords }}</td>
+    </tr>
+    {{ end }}
+    </tbody>
+</table>
+</div>
+{{end}}

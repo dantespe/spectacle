@@ -105,46 +105,46 @@ func (u *UIHandler) MakeDataset(c *gin.Context) {
 		uploadResp.Header.Set("Content-Type", writer.FormDataContentType())
 
 		client.Do(uploadResp)
-		datasetsResp, err := http.Get("http://localhost:8080/rest/datasets")
-		if err != nil {
-			log.Printf("Error occured while trying to retrieve datasets because %s", err)
-		}
-
-		var datasets manager.ListDatasetsResponse
-		newBodyBytes, err := io.ReadAll(datasetsResp.Body)
-		if err != nil {
-			log.Print("Processing read error: ", err)
-		}
-		json.Unmarshal(newBodyBytes, &datasets)
-
-		c.HTML(http.StatusOK, "datasets.html", gin.H{
-			"datasets": datasets.Results,
-		})
+		c.Redirect(http.StatusFound, "http://localhost:8080/edit_dataset")
 	}
 }
 
 func (u *UIHandler) CreateChart(c *gin.Context) {
-	c.HTML(http.StatusOK, "build_charts.html", nil)
+	c.HTML(http.StatusOK, "chart_builder.html", nil)
+}
+
+func (u *UIHandler) CreateTemplate(c *gin.Context) {
+	c.HTML(http.StatusOK, "template_builder.html", nil)
 }
 
 func (u *UIHandler) CreateDashboard(c *gin.Context) {
-	c.HTML(http.StatusOK, "build_dashboards.html", nil)
+	c.HTML(http.StatusOK, "dashboard_builder.html", nil)
 }
 
 func (u *UIHandler) CreateSummary(c *gin.Context) {
-	c.HTML(http.StatusOK, "build_summary.html", nil)
+	c.HTML(http.StatusOK, "summary_builder.html", nil)
 }
 
 func (u *UIHandler) ImportData(c *gin.Context) {
-	c.HTML(http.StatusCreated, "datasets.html", nil)
+	c.HTML(http.StatusCreated, "import.html", nil)
 }
 
 func (u *UIHandler) EditData(c *gin.Context) {
-	c.HTML(http.StatusOK, "datasets.html", nil)
-}
+	datasetsResp, err := http.Get("http://localhost:8080/rest/datasets")
+	if err != nil {
+		log.Printf("Error occured while trying to retrieve datasets because %s", err)
+	}
 
-func (u *UIHandler) Share(c *gin.Context) {
-	c.HTML(http.StatusOK, "sharing.html", nil)
+	var datasets manager.ListDatasetsResponse
+	newBodyBytes, err := io.ReadAll(datasetsResp.Body)
+	if err != nil {
+		log.Print("Processing read error: ", err)
+	}
+	json.Unmarshal(newBodyBytes, &datasets)
+
+	c.HTML(http.StatusOK, "edit_dataset.html", gin.H{
+		"datasets": datasets.Results,
+	})
 }
 
 func (u *UIHandler) Settings(c *gin.Context) {
@@ -159,12 +159,12 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/":                 u.Index,
 		"/create_chart":     u.CreateChart,
+		"/create_template":  u.CreateTemplate,
 		"/create_dashboard": u.CreateDashboard,
 		"/create_summary":   u.CreateSummary,
 		"/create_dataset":   u.ImportData,
 		"/edit_dataset":     u.EditData,
 		"/visualize":        u.Visualize,
-		"/share":            u.Share,
 		"/settings":         u.Settings,
 	}
 }

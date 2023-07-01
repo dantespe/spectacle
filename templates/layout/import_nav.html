@@ -1,10 +1,22 @@
 {{define "import_nav"}}
-<div class="col-2">
-    <div class="d-flex align-items-start justify-content-center"  style="padding-right: 16px;">
-        <div class="nav flex-column nav-pills me-3 nav-justified" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-        <button class="nav-link active rounded-0" href="#add" id="add-tab" data-bs-toggle="pill" data-bs-target="#add" type="button" role="tab" aria-controls="add" aria-selected="true">Add a Dataset</button>
-        <button class="nav-link rounded-0" href="#edit" id="edit-tab" data-bs-toggle="pill" data-bs-target="#edit" type="button" role="tab" aria-controls="edit" aria-selected="true">Edit a Dataset</button>
+<div class="col-auto px-0">
+    <div id="sidebar" class="collapse collapse-horizontal show just-padding">
+        <div class="offcanvas-body px-0">
+            <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-start" id="menu">
+                <li>
+                    <a href="/create_dataset" class="nav-link text-truncate px-0">
+                        <i class="bi bi-tools"></i><span class="ms-1 d-none d-sm-inline">Add Dataset</span></a>
+                </li>
+                <li>
+                    <a href="/edit_dataset" class="nav-link text-truncate px-0">
+                        <i class="bi bi-window"></i><span class="ms-1 d-none d-sm-inline">Edit Dataset</span></a>
+                </li>
+            </ul>
         </div>
     </div>
 </div>
+{{end}}
+
+{{define "import_nav_connector"}}
+<a href="#" data-bs-target="#sidebar" data-bs-toggle="collapse" class="border rounded-3 p-1 text-decoration-none"><i class="bi bi-list bi-lg py-2 p-1"></i></a>
 {{end}}

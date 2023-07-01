@@ -1,31 +1,12 @@
 <!DOCTYPE html>
-{{define "edit_dataset"}}
-<div class="container-fluid">
-  <table id="datasetsTable">
-    <!-- Table header -->
-    <thead>
-    <tr>
-        <th scope="col" width="35%">ID</th>
-        <th scope="col" width="35%">Display Name</th>
-        <th scope="col" width="20%">Row Count</th>
-    </tr>
-    </thead>
-    <!-- Table footer -->
-    <tfoot>
-    <tr>
-        <td>END</td>
-    </tr>
-    </tfoot>
-    <!-- Table body -->
-    <tbody>
-    {{ range .datasets }}
-    <tr>
-        <td>{{ .DatasetId }}</td>
-        <td>{{ .DisplayName }}</td>
-        <td>{{ .NumRecords }}</td>
-    </tr>
-    {{ end }}
-    </tbody>
-</table>
-</div>
-{{end}}
+{{template "top" .}}
+    <div class="container-fluid">
+        <div class="row flex-nowrap">
+            {{template "import_nav" .}}
+            <main class="col ps-md-2 pt-2">
+                {{template "import_nav_connector" .}}
+                {{template "edit_dataset" .}}
+            </main>
+        </div>
+    </div>
+{{template "bottom" .}}
