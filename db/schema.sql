@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS Operations (
     OperationStatus TEXT NOT NULL,
     ErrorMessage TEXT,
     CreationTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FinishTime TIMESTAMP,
     PRIMARY KEY (OperationId)
 );
 

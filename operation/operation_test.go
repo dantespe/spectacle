@@ -159,16 +159,14 @@ func TestSuccess(t *testing.T) {
 			o:    runOp,
 		},
 		{
-			desc: "COMPLETED_OP",
-			o: &operation.Operation{
-				OperationStatus: operation.Status_SUCCESS,
-			},
+			desc: "COMPLETE_OP",
+			o:    succOp,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			if err := tc.o.MarkSuccess(); err != nil {
-				t.Fatalf("got unexpected error on MarkCompleted(): %v", err)
+				t.Fatalf("got unexpected error on MarkSuccess(): %v", err)
 			}
 			if tc.o.OperationStatus != operation.Status_SUCCESS {
 				t.Errorf("got Status %s, wanted Status: %s", tc.o.OperationStatus, operation.Status_SUCCESS)
