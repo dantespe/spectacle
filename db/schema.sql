@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS Headers(
     PRIMARY KEY (HeaderId)
 );
 
+CREATE INDEX IF NOT EXISTS idx_datasetid_headers ON Headers(DatasetId);
+
 CREATE TABLE IF NOT EXISTS Operations (
     OperationId SERIAL,
     OperationStatus TEXT NOT NULL,
@@ -30,6 +32,8 @@ CREATE TABLE IF NOT EXISTS Records (
     DatasetIndex INTEGER, -- UNUSED
     PRIMARY KEY (RecordId)
 );
+
+CREATE INDEX IF NOT EXISTS idx_datasetid_records ON Records(DatasetId);
 
 CREATE TABLE IF NOT EXISTS RecordsProcessed (
     RecordId INTEGER REFERENCES Records(RecordId),
@@ -48,4 +52,6 @@ CREATE TABLE IF NOT EXISTS Cells (
     UNIQUE (HeaderId, RecordId),
     PRIMARY KEY (CellId)
 );
+
+CREATE INDEX IF NOT EXISTS idx_datasetid_cells ON Cells(RecordId);
 

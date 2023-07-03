@@ -215,8 +215,6 @@ func (m *Manager) createRecords(rd io.Reader, op *operation.Operation, ds *datas
 	reader := csv.NewReader(rd)
 	reader.LazyQuotes = true
 	reader.ReuseRecord = true
-	// reader.FieldsPerRecord = -1
-
 	for {
 		_, err := reader.Read()
 		// Unexpected Error
