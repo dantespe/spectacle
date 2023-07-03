@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/lib/pq"
+	pq "github.com/lib/pq"
 )
 
 // Postgres Defaults
@@ -241,4 +241,85 @@ func (e *Engine) createPostgresHandler() error {
 	}
 	e.DatabaseHandle = dh
 	return nil
+}
+
+type Tx struct {
+	engine *Engine
+	tx     *sql.Tx
+	stmt   *sql.Stmt
+	table  string
+	args   []string
+	buf    int
+}
+
+func NewTx(e *Engine, table string, args ...string) (*Tx, error) {
+	if e == nil {
+		return nil, fmt.Errorf("cannot create new transcation with nil engine")
+	}
+
+	tx, err := e.DatabaseHandle.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, err := tx.Prepare(pq.CopyIn(table, args...))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Tx{
+		engine: e,
+		tx:     tx,
+		stmt:   stmt,
+		table:  table,
+		args:   args,
+	}, nil
+}
+
+func (t *Tx) Exec(args ...interface{}) error {
+	if _, err := t.stmt.Exec(args...); err != nil {
+		return err
+	}
+	t.buf++
+
+	if t.isFull() {
+		t.flush()
+		return t.reset()
+	}
+	return nil
+}
+
+func (t *Tx) isFull() bool {
+	return t.buf > 500
+}
+
+func (t *Tx) flush() error {
+	if t.buf == 0 {
+		return nil
+	}
+	if err := t.stmt.Close(); err != nil {
+		return err
+	}
+	return t.tx.Commit()
+}
+
+func (t *Tx) reset() error {
+	tx, err := t.engine.DatabaseHandle.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare(pq.CopyIn(t.table, t.args...))
+	if err != nil {
+		return err
+	}
+
+	t.tx = tx
+	t.stmt = stmt
+	t.buf = 0
+	return nil
+}
+
+func (t *Tx) Close() error {
+	return t.flush()
 }

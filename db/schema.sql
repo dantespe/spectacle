@@ -15,19 +15,26 @@ CREATE TABLE IF NOT EXISTS Headers(
     PRIMARY KEY (HeaderId)
 );
 
-CREATE TABLE IF NOT EXISTS Records (
-    RecordId SERIAL,
-    DatasetId INTEGER REFERENCES Datasets(DatasetId),
-    DatasetIndex INTEGER, -- UNUSED
-    PRIMARY KEY (RecordId)
-);
-
 CREATE TABLE IF NOT EXISTS Operations (
     OperationId SERIAL,
     OperationStatus TEXT NOT NULL,
     ErrorMessage TEXT,
     CreationTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (OperationId)
+);
+
+CREATE TABLE IF NOT EXISTS Records (
+    RecordId SERIAL,
+    OperationId INTEGER REFERENCES Operations(OperationId),
+    DatasetId INTEGER REFERENCES Datasets(DatasetId),
+    DatasetIndex INTEGER, -- UNUSED
+    PRIMARY KEY (RecordId)
+);
+
+CREATE TABLE IF NOT EXISTS RecordsProcessed (
+    RecordId INTEGER REFERENCES Records(RecordId),
+    DatasetId INTEGER REFERENCES Datasets(DatasetId),
+    UNIQUE (RecordId, DatasetId)
 );
 
 CREATE TABLE IF NOT EXISTS Cells (
