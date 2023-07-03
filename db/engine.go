@@ -290,7 +290,7 @@ func (t *Tx) Exec(args ...interface{}) error {
 }
 
 func (t *Tx) isFull() bool {
-	return t.buf > 500
+	return t.buf > 250
 }
 
 func (t *Tx) flush() error {

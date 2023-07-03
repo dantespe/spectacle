@@ -135,9 +135,9 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation) {
 	// Every 5 seconds, we update the number of records in the Dataset.
 	// We will timeout after 4 hours. This is way more time than needed. We can process
-	// about 500k records/min.
-	ticker := time.NewTicker(5 * time.Second)
-	timeout := time.NewTicker(4 * time.Hour)
+	// about 500k cells/min.
+	ticker := time.NewTicker(60 * time.Second)
+	timeout := time.NewTicker(12 * time.Hour)
 	cancel := make(chan bool)
 
 	go func() {
@@ -278,7 +278,6 @@ func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset
 		}
 		// EOF
 		if err == io.EOF {
-			log.Printf("eof")
 			break
 		}
 
@@ -325,20 +324,17 @@ func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operati
 	go m.uploadRecordCount(ds, op)
 
 	// Store Request File to Disk
-
 	tmp, err := os.CreateTemp("", "spec_import")
 	if err != nil {
 		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
 		op.MarkFailed(fmt.Sprintf("Failed to create temp file with error: %v", err))
 		return
 	}
-	wb, err := io.Copy(tmp, req.InputFile)
-	if err != nil {
+	if _, err = io.Copy(tmp, req.InputFile); err != nil {
 		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
 		op.MarkFailed(fmt.Sprintf("Failed to copy to temp file with error: %v", err))
 		return
 	}
-	log.Printf("Creating tempfile: %s (wb=%d)", tmp.Name(), wb)
 	defer os.Remove(tmp.Name())
 
 	// Create Headers
@@ -384,6 +380,8 @@ func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operati
 		return
 	}
 	log.Printf("Finishing operation: %d", op.OperationId)
+
+	ds.UpdateNumRecords()
 	op.MarkSuccess()
 }
 
