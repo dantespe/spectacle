@@ -167,8 +167,12 @@ func (m *Manager) createOrGetHeaders(rd io.Reader, op *operation.Operation, ds *
 	}
 
 	// Return if we got a least one back
-	if len(headers) > 0 {
+	if len(headers) > 0 && ds.HeadersSet {
 		return headers, nil
+	}
+	if len(headers) > 0 && !ds.HeadersSet {
+		err := ds.SetHeaders(true)
+		return headers, err
 	}
 
 	// Read Headers from the file since we haven't seen any yet
@@ -197,6 +201,10 @@ func (m *Manager) createOrGetHeaders(rd io.Reader, op *operation.Operation, ds *
 		}
 	}
 	if err := tx.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := ds.SetHeaders(true); err != nil {
 		return nil, err
 	}
 
