@@ -6,15 +6,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/dantespe/spectacle/cell"
 	"github.com/dantespe/spectacle/dataset"
 	"github.com/dantespe/spectacle/db"
 	"github.com/dantespe/spectacle/header"
 	"github.com/dantespe/spectacle/operation"
-	"github.com/dantespe/spectacle/record"
 )
 
 const (
@@ -134,8 +133,12 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 }
 
 func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation) {
-	ticker := time.NewTicker(5 * time.Second)
-	timeout := time.NewTicker(4 * time.Hour)
+	// Every 5 seconds, we update the number of records in the Dataset.
+	// We will timeout after 4 hours. This is way more time than needed. We can process
+	// about 500k cells/min.
+	ticker := time.NewTicker(60 * time.Second)
+	timeout := time.NewTicker(12 * time.Hour)
+	cancel := make(chan bool)
 
 	go func() {
 		for {
@@ -144,6 +147,8 @@ func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation
 				return
 			case <-ticker.C:
 				ds.UpdateNumRecords()
+			case <-cancel:
+				return
 			}
 		}
 	}()
@@ -151,32 +156,78 @@ func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation
 	for !op.Complete() {
 		time.Sleep(time.Minute)
 	}
+	cancel <- true
 }
 
-func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operation, ds *dataset.Dataset) {
-	if err := op.MarkRunning(); err != nil {
-		log.Printf("MarkRunning failed with error: %v", err)
-		return
-	}
-
-	go m.uploadRecordCount(ds, op)
-
-	headers, err := header.GetHeaders(m.eng, req.DatasetId)
+func (m *Manager) createOrGetHeaders(rd io.Reader, op *operation.Operation, ds *dataset.Dataset) ([]*header.Header, error) {
+	// Load Headers from Database
+	headers, err := header.GetHeaders(m.eng, ds.DatasetId)
 	if err != nil {
-		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-		op.MarkFailed(fmt.Sprintf("Failed to load headers into memory: %v", err))
+		return nil, err
 	}
 
-	// 2) Process Each Row in the CSV
-	reader := csv.NewReader(req.InputFile)
+	// Return if we got a least one back
+	if len(headers) > 0 && ds.HeadersSet {
+		return headers, nil
+	}
+	if len(headers) > 0 && !ds.HeadersSet {
+		err := ds.SetHeaders(true)
+		return headers, err
+	}
+
+	// Read Headers from the file since we haven't seen any yet
+	reader := csv.NewReader(rd)
+	rawRecord, err := reader.Read()
+
+	// Unexpected Error
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	// EOF, so we return empty header list
+	if err == io.EOF {
+		// no headers
+		return headers, nil
+	}
+
+	// Create Headers from input file
+	tx, err := db.NewTx(m.eng, "headers", "datasetid", "displayname", "valuetype")
+	if err != nil {
+		return nil, err
+	}
+	for _, dn := range rawRecord {
+		if err := tx.Exec(ds.DatasetId, dn, header.ValueType_RAW); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := ds.SetHeaders(true); err != nil {
+		return nil, err
+	}
+
+	// Return Headers Created by tx.
+	return header.GetHeaders(m.eng, ds.DatasetId)
+}
+
+func (m *Manager) createRecords(rd io.Reader, op *operation.Operation, ds *dataset.Dataset) error {
+	// Create Records Transaction
+	tx, err := db.NewTx(m.eng, "records", "operationid", "datasetid")
+	if err != nil {
+		return fmt.Errorf("failed to create record tx with err: %v", err)
+	}
+
+	// Create Each Record
+	reader := csv.NewReader(rd)
+	reader.LazyQuotes = true
 	reader.ReuseRecord = true
 	for {
-		rawRecord, err := reader.Read()
-
+		_, err := reader.Read()
 		// Unexpected Error
 		if err != nil && err != io.EOF {
-			log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-			op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
+			return fmt.Errorf("failed to read record with err: %v", err)
 		}
 
 		// EOF, wait until all threads have finished
@@ -184,48 +235,159 @@ func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operati
 			break
 		}
 
-		// Create Headers
-		if !ds.HeadersSet {
-			for _ = range rawRecord {
-				header, err := header.New(m.eng, req.DatasetId)
-				if err != nil {
-					log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-					op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
-				}
-				headers = append(headers, header)
-			}
+		// Create Record
+		if err := tx.Exec(op.OperationId, ds.DatasetId); err != nil {
+			return fmt.Errorf("faield to Exec(op, ds) with err: %v", err)
+		}
+	}
+	return tx.Close()
+}
 
-			if ds.SetHeaders(true); err != nil {
-				log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-				op.MarkFailed(fmt.Sprintf("Got unexpected error setting headers: %v", err))
-			}
+func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset.Dataset, headers []*header.Header) error {
+	// Create RecordsProcessed Tx
+	rtx, err := db.NewTx(m.eng, "recordsprocessed", "recordid", "datasetid")
+	if err != nil {
+		return err
+	}
+
+	// Create Cells Tx
+	ctx, err := db.NewTx(m.eng, "cells", "recordid", "headerid", "operationid", "rawvalue")
+	if err != nil {
+		return err
+	}
+
+	// Get RecordIds
+	records, err := m.eng.DatabaseHandle.Query("SELECT RecordId FROM Records WHERE OperationId = $1 ORDER BY RecordId", op.OperationId)
+	if err != nil {
+		return err
+	}
+	defer records.Close()
+
+	reader := csv.NewReader(rd)
+	reader.LazyQuotes = true
+	reader.ReuseRecord = true
+
+	// For each record, we go through the CSV and create a cell for each
+	// column in the row. Associate the correct foreign keys and then mark
+	// the record (row) as processed.
+	for records.Next() {
+		var recordId int64
+		if err := records.Scan(&recordId); err != nil {
+			return err
 		}
 
-		record, err := record.New(m.eng, req.DatasetId)
-		if err != nil {
-			log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-			op.MarkFailed(fmt.Sprintf("Failed to create new record with error: %v", err))
+		// Read the row
+		rawRecord, err := reader.Read()
+		// Unexpected Error
+		if err != nil && err != io.EOF {
+			return err
+		}
+		// EOF
+		if err == io.EOF {
+			break
 		}
 
-		idx := 0
+		headerIdx := 0
 		for _, rv := range rawRecord {
 			// Extend Headers if needed
-			if idx >= len(headers) {
-				header, err := header.New(m.eng, req.DatasetId)
+			if headerIdx >= len(headers) {
+				header, err := header.New(m.eng, ds.DatasetId)
 				if err != nil {
-					log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-					op.MarkFailed(fmt.Sprintf("Got unexpected error during processing: %v", err))
+					return err
 				}
 				headers = append(headers, header)
 			}
-			if _, err := cell.New(m.eng, record.RecordId, headers[idx].HeaderId, op.OperationId, rv); err != nil {
-				log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
-				op.MarkFailed(fmt.Sprintf("Failed to create a cell: %v", err))
+			// Create Cell for (row, col)
+			if err := ctx.Exec(recordId, headers[headerIdx].HeaderId, op.OperationId, rv); err != nil {
+				return err
 			}
-			idx++
+			headerIdx++
+		}
+		// Mark Record as Processed
+		if err := rtx.Exec(recordId, ds.DatasetId); err != nil {
+			return err
 		}
 	}
 
+	if err := ctx.Close(); err != nil {
+		return err
+	}
+	if err := rtx.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) processUpload(req *UploadDatasetRequest, op *operation.Operation, ds *dataset.Dataset) {
+	// Mark Operation as Running
+	if err := op.MarkRunning(); err != nil {
+		log.Printf("MarkRunning failed with error: %v", err)
+		return
+	}
+
+	// Starts a background process to update the number of records in the dataset.
+	go m.uploadRecordCount(ds, op)
+
+	// Store Request File to Disk
+	tmp, err := os.CreateTemp("", "spec_import")
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to create temp file with error: %v", err))
+		return
+	}
+	if _, err = io.Copy(tmp, req.InputFile); err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to copy to temp file with error: %v", err))
+		return
+	}
+	defer os.Remove(tmp.Name())
+
+	// Create Headers
+	log.Printf("Creating Headers for operation: %d", op.OperationId)
+	tf, err := os.Open(tmp.Name())
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to copy to temp file for headers with error: %v", err))
+		return
+	}
+	headers, err := m.createOrGetHeaders(tf, op, ds)
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to load headers into memory: %v", err))
+		return
+	}
+
+	// Create Records
+	log.Printf("Creating Records for operation: %d", op.OperationId)
+	rf, err := os.Open(tmp.Name())
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to copy to temp file for records with error: %v", err))
+		return
+	}
+	if err := m.createRecords(rf, op, ds); err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to create records: %v", err))
+		return
+	}
+
+	// Create Cells
+	log.Printf("Creating Cells for operation: %d", op.OperationId)
+	cf, err := os.Open(tmp.Name())
+	if err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to copy to temp file for cells with error: %v", err))
+		return
+	}
+	if err := m.createCells(cf, op, ds, headers); err != nil {
+		log.Printf("/operation/%d failed, check the logs to see a detailed error", op.OperationId)
+		op.MarkFailed(fmt.Sprintf("Failed to create cells: %v", err))
+		return
+	}
+	log.Printf("Finishing operation: %d", op.OperationId)
+
+	ds.UpdateNumRecords()
 	op.MarkSuccess()
 }
 

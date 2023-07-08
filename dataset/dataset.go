@@ -165,7 +165,7 @@ func (d *Dataset) SetHeaders(headers bool) error {
 }
 
 func (d *Dataset) UpdateNumRecords() error {
-	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET NumRecords = (SELECT COUNT(*) FROM Records WHERE DatasetId = $1) WHERE DatasetId = $1")
+	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET NumRecords = (SELECT COUNT(*) FROM RecordsProcessed WHERE DatasetId = $1) WHERE DatasetId = $1")
 	if err != nil {
 		return fmt.Errorf("failed to create dataset NumRecords prepared statement with error: %v", err)
 	}
@@ -173,7 +173,7 @@ func (d *Dataset) UpdateNumRecords() error {
 	if err != nil {
 		return fmt.Errorf("failed to update dataset NumRecords with error: %v", err)
 	}
-	if err := d.eng.DatabaseHandle.QueryRow("SELECT DisplayName, NumRecords FROM Datasets WHERE DatasetId = $1", d.DatasetId).Scan(&d.DisplayName, &d.NumRecords); err != nil {
+	if err := d.eng.DatabaseHandle.QueryRow("SELECT NumRecords FROM Datasets WHERE DatasetId = $1", d.DatasetId).Scan(&d.NumRecords); err != nil {
 		return fmt.Errorf("fialed to retrieve dataset NumRecords with error: %v", d.DatasetId)
 	}
 	return nil

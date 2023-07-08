@@ -61,6 +61,21 @@ func (o *Operation) markStatus(st Status, errMsg string) error {
 	return nil
 }
 
+func (o *Operation) markFinished() error {
+	if o.eng == nil {
+		return fmt.Errorf("cannot mark status when engine is nil")
+	}
+	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET FinishTime = CURRENT_TIMESTAMP WHERE OperationId = $1")
+	if err != nil {
+		return fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
+	}
+	_, err = stmt.Exec(o.OperationId)
+	if err != nil {
+		return fmt.Errorf("failed to update operations table with error: %v", err)
+	}
+	return nil
+}
+
 // MarkRunning sets the OperationStatus to RUNNING.
 func (o *Operation) MarkRunning() error {
 	o.mu.Lock()
@@ -77,6 +92,9 @@ func (o *Operation) MarkSuccess() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
+	if err := o.markFinished(); err != nil {
+		return err
+	}
 	if o.OperationStatus == Status_NOT_STARTED || o.OperationStatus == Status_RUNNING {
 		return o.markStatus(Status_SUCCESS, "")
 	}
@@ -87,6 +105,9 @@ func (o *Operation) MarkSuccess() error {
 func (o *Operation) MarkFailed(msg string) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if err := o.markFinished(); err != nil {
+		return err
+	}
 	return o.markStatus(Status_FAILED, msg)
 }
 

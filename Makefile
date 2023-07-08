@@ -52,8 +52,8 @@ docker_start:
 		cat $(PSQL_SCHEMA) | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d $$file ; \
 	done
 
-docker_exec: docker_start
-	docker exec -it $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER)
+docker_exec:
+	docker exec -it $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d dev
 
 docker_stop:
 	docker stop $(DOCKER_CONTAINER)
@@ -62,7 +62,7 @@ docker_create:
 	cat $(PSQL_SCHEMA) | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DATABASE_NAME)
 
 docker_clean:
-	cat testing/delete_tables.sql | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DATABASE_NAME)
+	cat testing/delete_tables.sql | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER)
 
 test: docker_start db_test operation_test dataset_test header_test record_test cell_test
 
