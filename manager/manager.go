@@ -133,8 +133,8 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 }
 
 func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation) {
-	// Every 5 seconds, we update the number of records in the Dataset.
-	// We will timeout after 4 hours. This is way more time than needed. We can process
+	// Every 60 seconds, we update the number of records in the Dataset.
+	// We will timeout after 12 hours. This is way more time than needed. We can process
 	// about 500k cells/min.
 	ticker := time.NewTicker(60 * time.Second)
 	timeout := time.NewTicker(12 * time.Hour)
