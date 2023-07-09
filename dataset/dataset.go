@@ -118,7 +118,7 @@ func GetDatasets(eng *db.Engine, maxDatasets int64) ([]*Dataset, error) {
 	if maxDatasets <= 0 {
 		maxDatasets = 100
 	}
-	rows, err := eng.DatabaseHandle.Query("SELECT DatasetId, DisplayName, NumRecords FROM Datasets ORDER BY DatasetId LIMIT $1", maxDatasets)
+	rows, err := eng.DatabaseHandle.Query("SELECT DatasetId, DisplayName, HeadersSet, NumRecords FROM Datasets ORDER BY DatasetId LIMIT $1", maxDatasets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for datasetId with error: %v", err)
 	}
@@ -129,8 +129,8 @@ func GetDatasets(eng *db.Engine, maxDatasets int64) ([]*Dataset, error) {
 		ds := &Dataset{
 			eng: eng,
 		}
-		if err := rows.Scan(&ds.DatasetId, &ds.DisplayName, &ds.NumRecords); err != nil {
-			return nil, fmt.Errorf("failed to Scan(DatasetId, DisplayName, NumRecords) for dataset with error: %v", err)
+		if err := rows.Scan(&ds.DatasetId, &ds.DisplayName, &ds.HeadersSet, &ds.NumRecords); err != nil {
+			return nil, fmt.Errorf("failed to Scan(DatasetId, DisplayName, HeadersSet, NumRecords) for dataset with error: %v", err)
 		}
 		results = append(results, ds)
 	}
