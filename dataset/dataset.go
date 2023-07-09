@@ -77,7 +77,7 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 	}
 
 	// Get Dataset
-	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet FROM Datasets WHERE DatasetId = $1", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet, NumRecords FROM Datasets WHERE DatasetId = $1", datasetId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for dataset with error: %v", err)
 	}
@@ -90,15 +90,9 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 		return nil, nil
 	}
 
-	// 404: We did not find the dataset given datasetId
-	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet); err != nil {
+	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet, &ds.NumRecords); err != nil {
+		// 404: We did not find the dataset given datasetId
 		return nil, nil
-	}
-
-	// Count Number of Records
-	row := eng.DatabaseHandle.QueryRow("SELECT COUNT(*) FROM Records WHERE DatasetId = $1", datasetId)
-	if err := row.Scan(&ds.NumRecords); err != nil {
-		return ds, fmt.Errorf("got error for COUNT(*) with error: %v", err)
 	}
 
 	return ds, nil
