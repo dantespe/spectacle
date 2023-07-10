@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS Datasets(
 CREATE TABLE IF NOT EXISTS Headers(
     HeaderId SERIAL,
     DatasetId INTEGER REFERENCES Datasets(DatasetId),
-    ColumnIndex SERIAL,
+    ColumnIndex INTEGER,
     DisplayName TEXT,
     ValueType TEXT NOT NULL,
     PRIMARY KEY (HeaderId)
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS Records (
     RecordId SERIAL,
     OperationId INTEGER REFERENCES Operations(OperationId),
     DatasetId INTEGER REFERENCES Datasets(DatasetId),
-    DatasetIndex INTEGER, -- UNUSED
+    DatasetIndex INTEGER,
     PRIMARY KEY (RecordId)
 );
 

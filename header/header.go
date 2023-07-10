@@ -9,19 +9,38 @@ import (
 type ValueType string
 
 const (
-	ValueType_RAW   = "RAW"
-	ValueType_INT   = "INT"
-	ValueType_FLOAT = "FLOAT"
+	ValueType_RAW   ValueType = "RAW"
+	ValueType_INT             = "INT"
+	ValueType_FLOAT           = "FLOAT"
 )
 
 type Header struct {
 	HeaderId    int64
+	ColumnIndex int64
 	datasetId   int64
 	displayName string
 	valueType   ValueType
 	eng         *db.Engine
 }
 
+const BucketIncrement = 1000
+
+func (h *Header) SetColumnIndex(i int64) error {
+	if h.eng == nil {
+		return fmt.Errorf("cannot create a new Header with nil db.Engine")
+	}
+	stmt, err := h.eng.DatabaseHandle.Prepare("UPDATE Headers SET ColumnIndex = $1 WHERE HeaderId = $2")
+	if err != nil {
+		return fmt.Errorf("failed to create Headers prepared statement with error: %v", err)
+	}
+	_, err = stmt.Exec(BucketIncrement*i, h.HeaderId)
+	if err != nil {
+		return fmt.Errorf("failed to Update Headers table with error: %v", err)
+	}
+	return nil
+}
+
+// New extends the dataset's headers by one and returns it.
 func New(eng *db.Engine, datasetId int64) (*Header, error) {
 	if eng == nil {
 		return nil, fmt.Errorf("cannot create a new Header with nil db.Engine")
@@ -45,7 +64,7 @@ func GetHeaders(eng *db.Engine, datasetId int64) ([]*Header, error) {
 	}
 
 	var results []*Header
-	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType FROM Headers WHERE DatasetId = $1 ORDER BY HeaderId", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType FROM Headers WHERE DatasetId = $1 ORDER BY ColumnIndex, HeaderId", datasetId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get headers(datasetId=%d) with error: %v", datasetId, err)
 	}

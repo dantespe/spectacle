@@ -16,13 +16,6 @@ import (
 	"github.com/dantespe/spectacle/operation"
 )
 
-const (
-	OPERATION_STATE_UNKNOWN = "UNKNOWN"
-	OPERATION_STATE_RUNNING = "RUNNING"
-	OPERATION_STATE_SUCCESS = "SUCCESS"
-	OPERATION_STATE_FAIL    = "FAIL"
-)
-
 // Manager stores all useful things for Spectacle.
 type Manager struct {
 	mu  sync.RWMutex
@@ -208,8 +201,19 @@ func (m *Manager) createOrGetHeaders(rd io.Reader, op *operation.Operation, ds *
 		return nil, err
 	}
 
-	// Return Headers Created by tx.
-	return header.GetHeaders(m.eng, ds.DatasetId)
+	headers, err = header.GetHeaders(m.eng, ds.DatasetId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set Column Index Order
+	for i, h := range headers {
+		if err := h.SetColumnIndex(int64(i)); err != nil {
+			return nil, err
+		}
+	}
+
+	return headers, nil
 }
 
 func (m *Manager) createRecords(rd io.Reader, op *operation.Operation, ds *dataset.Dataset) error {
