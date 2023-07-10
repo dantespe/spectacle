@@ -270,6 +270,7 @@ func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset
 	reader := csv.NewReader(rd)
 	reader.LazyQuotes = true
 	reader.ReuseRecord = true
+	first := true
 
 	// For each record, we go through the CSV and create a cell for each
 	// column in the row. Associate the correct foreign keys and then mark
@@ -289,6 +290,11 @@ func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset
 		// EOF
 		if err == io.EOF {
 			break
+		}
+		// First should skip
+		if first {
+			first = false
+			continue
 		}
 
 		headerIdx := 0

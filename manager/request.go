@@ -12,7 +12,6 @@ type RequestBuilder struct{}
 // CreateDatasetRequest
 type CreateDatasetRequest struct {
 	DisplayName string `json:"displayName"`
-	HasHeaders  bool   `json:"hasHeaders"`
 }
 
 // CreateDatasetRequestBuilder from gin.Context.
@@ -58,6 +57,9 @@ func newListDatasetsRequest() *ListDatasetsRequest {
 type UploadDatasetRequest struct {
 	// DatasetId
 	DatasetId int64 `json:"datasetId"`
+
+	// HasHeaders
+	HasHeaders bool `json:"hasHeaders"`
 
 	// InputFile
 	InputFile io.Reader `json:"-"`
