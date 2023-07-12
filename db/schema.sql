@@ -54,5 +54,9 @@ CREATE TABLE IF NOT EXISTS Cells (
     PRIMARY KEY (CellId)
 );
 
-CREATE INDEX IF NOT EXISTS idx_datasetid_cells ON Cells(RecordId);
+CREATE INDEX IF NOT EXISTS idx_recordid_cells ON Cells(RecordId);
+CREATE INDEX IF NOT EXISTS idx_headerid_cells ON Cells(HeaderId);
 
+
+-- SELECT Cells.RawValue, Headers.HeaderId, Cells.RecordId FROM Cells JOIN Headers ON Cells.HeaderId = Headers.HeaderId WHERE Headers.DatasetId = 1 ORDER BY Cells.RecordId, Headers.HeaderId;
+-- EXPLAIN ANALYZE SELECT Cells.RawValue, Headers.HeaderId, Cells.RecordId FROM Cells JOIN Headers ON Cells.HeaderId = Headers.HeaderId WHERE Headers.DatasetId = 1 ORDER By Cells.RecordId, Headers.HeaderId;
