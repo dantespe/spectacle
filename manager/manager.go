@@ -435,3 +435,36 @@ func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetR
 		Code:         http.StatusOK,
 	}
 }
+
+func (m *Manager) GetHeaders(req *GetHeadersRequest) (int, *GetHeadersResponse) {
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Query for Dataset failed with error: %v", err)
+		return http.StatusInternalServerError, &GetHeadersResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// We should 404, because dataset was not found and err was nil.
+	if ds == nil {
+		return http.StatusNotFound, &GetHeadersResponse{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
+		}
+	}
+
+	headers, err := header.GetHeaders(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Failed to get headers with err: %v", err)
+		return http.StatusInternalServerError, &GetHeadersResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	return http.StatusOK, &GetHeadersResponse{
+		Headers: headers,
+		Code:    http.StatusOK,
+	}
+}

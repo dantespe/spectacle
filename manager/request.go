@@ -84,3 +84,16 @@ func (*RequestBuilder) UploadDatasetRequestBuilder(c *gin.Context) (*UploadDatas
 		InputFile: file,
 	}, nil
 }
+
+type GetHeadersRequest struct {
+	// DatasetId
+	DatasetId int64 `json:"datasetId"`
+}
+
+func (*RequestBuilder) GetHeadersRequestBuilder(c *gin.Context) (*GetHeadersRequest, error) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &GetHeadersRequest{DatasetId: id}, nil
+}

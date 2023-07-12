@@ -15,10 +15,10 @@ const (
 )
 
 type Header struct {
-	HeaderId    int64
-	ColumnIndex int64
+	HeaderId    int64 `json:"headerId"`
+	columnIndex int64
+	DisplayName string `json:"displayName"`
 	datasetId   int64
-	displayName string
 	valueType   ValueType
 	eng         *db.Engine
 }
@@ -37,6 +37,7 @@ func (h *Header) SetColumnIndex(i int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to Update Headers table with error: %v", err)
 	}
+	h.columnIndex = i
 	return nil
 }
 
@@ -64,7 +65,7 @@ func GetHeaders(eng *db.Engine, datasetId int64) ([]*Header, error) {
 	}
 
 	var results []*Header
-	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType FROM Headers WHERE DatasetId = $1 ORDER BY ColumnIndex, HeaderId", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT HeaderId, ValueType, DisplayName FROM Headers WHERE DatasetId = $1 ORDER BY ColumnIndex, HeaderId", datasetId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get headers(datasetId=%d) with error: %v", datasetId, err)
 	}
@@ -74,7 +75,7 @@ func GetHeaders(eng *db.Engine, datasetId int64) ([]*Header, error) {
 		h := &Header{
 			eng: eng,
 		}
-		if err := rows.Scan(&h.HeaderId, &h.valueType); err != nil {
+		if err := rows.Scan(&h.HeaderId, &h.valueType, &h.DisplayName); err != nil {
 			return nil, fmt.Errorf("failed to Headers Scan with error: %v", err)
 		}
 		results = append(results, h)
