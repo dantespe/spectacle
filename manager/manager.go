@@ -16,13 +16,6 @@ import (
 	"github.com/dantespe/spectacle/operation"
 )
 
-const (
-	OPERATION_STATE_UNKNOWN = "UNKNOWN"
-	OPERATION_STATE_RUNNING = "RUNNING"
-	OPERATION_STATE_SUCCESS = "SUCCESS"
-	OPERATION_STATE_FAIL    = "FAIL"
-)
-
 // Manager stores all useful things for Spectacle.
 type Manager struct {
 	mu  sync.RWMutex
@@ -208,8 +201,19 @@ func (m *Manager) createOrGetHeaders(rd io.Reader, op *operation.Operation, ds *
 		return nil, err
 	}
 
-	// Return Headers Created by tx.
-	return header.GetHeaders(m.eng, ds.DatasetId)
+	headers, err = header.GetHeaders(m.eng, ds.DatasetId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set Column Index Order
+	for i, h := range headers {
+		if err := h.SetColumnIndex(int64(i)); err != nil {
+			return nil, err
+		}
+	}
+
+	return headers, nil
 }
 
 func (m *Manager) createRecords(rd io.Reader, op *operation.Operation, ds *dataset.Dataset) error {
@@ -266,6 +270,7 @@ func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset
 	reader := csv.NewReader(rd)
 	reader.LazyQuotes = true
 	reader.ReuseRecord = true
+	first := true
 
 	// For each record, we go through the CSV and create a cell for each
 	// column in the row. Associate the correct foreign keys and then mark
@@ -285,6 +290,11 @@ func (m *Manager) createCells(rd io.Reader, op *operation.Operation, ds *dataset
 		// EOF
 		if err == io.EOF {
 			break
+		}
+		// First should skip
+		if first {
+			first = false
+			continue
 		}
 
 		headerIdx := 0
@@ -423,5 +433,38 @@ func (m *Manager) UploadDataset(req *UploadDatasetRequest) (int, *UploadDatasetR
 	return http.StatusOK, &UploadDatasetResponse{
 		OperationUrl: fmt.Sprintf("/operation/%d", op.OperationId),
 		Code:         http.StatusOK,
+	}
+}
+
+func (m *Manager) GetHeaders(req *GetHeadersRequest) (int, *GetHeadersResponse) {
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Query for Dataset failed with error: %v", err)
+		return http.StatusInternalServerError, &GetHeadersResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// We should 404, because dataset was not found and err was nil.
+	if ds == nil {
+		return http.StatusNotFound, &GetHeadersResponse{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
+		}
+	}
+
+	headers, err := header.GetHeaders(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Failed to get headers with err: %v", err)
+		return http.StatusInternalServerError, &GetHeadersResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	return http.StatusOK, &GetHeadersResponse{
+		Headers: headers,
+		Code:    http.StatusOK,
 	}
 }

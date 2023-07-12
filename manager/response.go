@@ -2,6 +2,7 @@ package manager
 
 import (
 	"github.com/dantespe/spectacle/dataset"
+	"github.com/dantespe/spectacle/header"
 )
 
 // StatusResponse
@@ -42,4 +43,10 @@ type UploadDatasetResponse struct {
 	OperationUrl string `json:"operation,omitempty"`
 	Message      string `json:"error,omitempty"`
 	Code         int    `json:"code"`
+}
+
+type GetHeadersResponse struct {
+	Headers []*header.Header `json:"results"`
+	Message string           `json:"error,omitempty"`
+	Code    int              `json:"code"`
 }

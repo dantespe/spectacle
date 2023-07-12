@@ -21,6 +21,7 @@ $ godoc --http=:6080
 | [`/status`](#status)                     | The status of the server.                         | `GET`  |
 | [`/datasets`](#list-datasets)            | Returns all datasets.                             | `GET`  |
 | [`/datasets/<datasetId>`](#get-dataset)  | Returns a single dataset.                         | `GET`  |
+| [`/datasets/<datasetId>/headers`](#get-headers)  | Returns a single dataset.                         | `GET`  |
 | [`/dataset`](#create-dataset)            | Creates a new dataset                             | `POST` |
 | [`/dataset/<datasetId>/upload`](#upload) | Uploads a new file to the dataset with datasetId. | `POST` |
 
@@ -88,6 +89,45 @@ curl localhost:8080/rest/dataset/1
       "headersSet" : true,
       "numRecords" : 31
    }
+}
+```
+
+#### [Get Headers](#get-headers)
+
+Returns the headers with given dataset id.
+
+Example:
+```
+curl localhost:8080/rest/dataset/1/headers
+{
+   "code" : 200,
+   "results" : [
+      {
+         "displayName" : "LEAGUE_ID",
+         "headerId" : 1
+      },
+      {
+         "displayName" : "TEAM_ID",
+         "headerId" : 2
+      },
+      {
+         "displayName" : "MIN_YEAR",
+         "headerId" : 3
+      },
+      {
+         "displayName" : "MAX_YEAR",
+         "headerId" : 4
+      },
+    ...
+      {
+         "displayName" : "HEADCOACH",
+         "headerId" : 13
+      },
+      {
+         "displayName" : "DLEAGUEAFFILIATION",
+         "headerId" : 14
+      }
+   ]
 }
 ```
 
