@@ -18,21 +18,16 @@
 
 {{define "edit_dataset"}}
 <div class="container-fluid">
-  <table id="datasetsTable">
+  <table id="datasetsTable" class="table table-bordered table-hover">
     <!-- Table header -->
-    <thead>
+    <thead class="table-dark">
     <tr>
         <th scope="col" width="35%">ID</th>
         <th scope="col" width="35%">Display Name</th>
         <th scope="col" width="20%">Row Count</th>
+        <th scope="col" width="35%">Settings</th>
     </tr>
     </thead>
-    <!-- Table footer -->
-    <tfoot>
-    <tr>
-        <td>END</td>
-    </tr>
-    </tfoot>
     <!-- Table body -->
     <tbody>
     {{ range .datasets }}
@@ -40,6 +35,7 @@
         <td>{{ .DatasetId }}</td>
         <td>{{ .DisplayName }}</td>
         <td>{{ .NumRecords }}</td>
+        <td><i class="bi bi-gear"></i></td>
     </tr>
     {{ end }}
     </tbody>
