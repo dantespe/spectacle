@@ -124,8 +124,8 @@ func (u *UIHandler) CreateChart(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "chart_builder.html",
 		gin.H{
-			"test_spans":  string(test_spans),
-			"test_values": string(test_bytes),
+			"test_spans": test_spans,
+			"test_values": test_bytes,
 		})
 }
 
