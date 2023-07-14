@@ -11,17 +11,16 @@ import (
 
 func main() {
 	router := gin.Default()
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// REST
 	if err := handler.AddRestHandlerRoutes(router.Group("rest")); err != nil {
 		log.Fatal(err)
 	}
 
 	// UI
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := handler.AddUIHandlerRoutes(router, wd); err != nil {
 		log.Fatal(err)
 	}

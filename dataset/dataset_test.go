@@ -2,7 +2,6 @@
 package dataset_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,11 +20,11 @@ func DatasetDiff(l *dataset.Dataset, r *dataset.Dataset) string {
 }
 
 func TestNew(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
 	testCases := []struct {
 		desc string
@@ -44,11 +43,11 @@ func TestNew(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ds, err := dataset.New(eng, tc.opts...)
+			ds, err := dataset.New(tmp.Engine, tc.opts...)
 			if err != nil {
 				t.Fatalf("failed to create New dataset: %v", err)
 			}
-			ds2, err := dataset.GetDatasetFromId(eng, ds.DatasetId)
+			ds2, err := dataset.GetDatasetFromId(tmp.Engine, ds.DatasetId)
 			if err != nil {
 				t.Fatalf("failed to retrieve dataset: %v", err)
 			}
@@ -60,78 +59,65 @@ func TestNew(t *testing.T) {
 }
 
 func TestTotalDatasets(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
+
+	before, err := dataset.TotalDatasets(tmp.Engine)
+	if err != nil {
+		t.Fatalf("failed to get total datasets with err: %v", err)
+	}
 
 	for i := 0; i < 5; i++ {
-		_, err := dataset.New(eng)
+		_, err := dataset.New(tmp.Engine)
 		if err != nil {
 			t.Fatalf("failed to create dataset with err: %v", err)
 		}
 	}
 
-	td, err := dataset.TotalDatasets(eng)
+	after, err := dataset.TotalDatasets(tmp.Engine)
 	if err != nil {
-		t.Errorf("got: %d, want: 5", td)
+		t.Fatalf("failed to get total datasets with err: %v", err)
+	}
+	if after < before+5 {
+		t.Errorf("got: %d, wanted at least: %d", after, before+5)
 	}
 }
 
 func TestGetDatasets(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
 	for i := 0; i < 3; i++ {
-		_, err := dataset.New(eng)
+		_, err := dataset.New(tmp.Engine)
 		if err != nil {
 			t.Fatalf("failed to create dataset with err: %v", err)
 		}
 	}
 
-	expected := []*dataset.Dataset{
-		&dataset.Dataset{
-			DatasetId:   1,
-			DisplayName: "untitled-1",
-		},
-		&dataset.Dataset{
-			DatasetId:   2,
-			DisplayName: "untitled-2",
-		},
-		&dataset.Dataset{
-			DatasetId:   3,
-			DisplayName: "untitled-3",
-		},
-	}
-
-	result, err := dataset.GetDatasets(eng, 10)
+	ds, err := dataset.GetDatasets(tmp.Engine, 3)
 	if err != nil {
-		t.Fatalf("failed to GetDatasets() with err: %v", err)
+		t.Fatalf("got error for GetDatasets(3): %v", err)
 	}
 
-	if len(result) != len(expected) {
-		t.Fatalf("Got len(result): %d, with: %d", len(result), len(expected))
-	}
-
-	for i := 0; i < 3; i++ {
-		if !DatasetCmp(result[i], expected[i]) {
-			t.Errorf("Got diff: %s, want: ''", DatasetDiff(result[i], expected[i]))
-		}
+	if len(ds) != 3 {
+		t.Errorf("got len: %d, want: 3", len(ds))
 	}
 }
 
 func TestSetDatasets(t *testing.T) {
-	eng, fname, err := spectesting.CreateTempSQLiteEngine()
+	tmp, err := spectesting.NewTempPostgres()
 	if err != nil {
-		t.Fatalf("failed to create database engine: %v", err)
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
 	}
-	defer os.Remove(fname)
+	defer tmp.Close()
 
-	ds, err := dataset.New(eng)
+	ds, err := dataset.New(tmp.Engine)
 	if err != nil {
 		t.Fatalf("failed to create dataset with err: %v", err)
 	}
@@ -140,11 +126,31 @@ func TestSetDatasets(t *testing.T) {
 		t.Errorf("failed to SetHeaders with err: %v", err)
 	}
 
-	ds2, err := dataset.GetDatasetFromId(eng, ds.DatasetId)
+	ds2, err := dataset.GetDatasetFromId(tmp.Engine, ds.DatasetId)
 	if err != nil {
 		t.Fatalf("failed to GetDatasetFromId with err: %v", err)
 	}
 	if !DatasetCmp(ds, ds2) {
 		t.Errorf("Got diff: %s, want: ''", DatasetDiff(ds, ds2))
+	}
+}
+
+func TestUpdateNumRecords(t *testing.T) {
+	tmp, err := spectesting.NewTempPostgres()
+	if err != nil {
+		t.Fatalf("failed to create temp postgres database with err: %v", err)
+	}
+	defer tmp.Close()
+
+	ds, err := dataset.New(tmp.Engine)
+	if err != nil {
+		t.Fatalf("failed to create dataset with err: %v", err)
+	}
+
+	if err = ds.UpdateNumRecords(); err != nil {
+		t.Fatalf("got unexpected err on UpdateNumRecords: %v", err)
+	}
+	if ds.NumRecords != 0 {
+		t.Errorf("got NumRecords: %d, want: 0", ds.NumRecords)
 	}
 }
