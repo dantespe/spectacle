@@ -16,14 +16,15 @@ $ godoc --http=:6080
 ## REST Reference
 
 ### Overview
-| Endpoint                                 | Description                                       | Method |
-| ---------------------------------------- | ------------------------------------------------- | ------ |
-| [`/status`](#status)                     | The status of the server.                         | `GET`  |
-| [`/datasets`](#list-datasets)            | Returns all datasets.                             | `GET`  |
-| [`/datasets/<datasetId>`](#get-dataset)  | Returns a single dataset.                         | `GET`  |
-| [`/datasets/<datasetId>/headers`](#get-headers)  | Returns a single dataset.                         | `GET`  |
-| [`/dataset`](#create-dataset)            | Creates a new dataset                             | `POST` |
-| [`/dataset/<datasetId>/upload`](#upload) | Uploads a new file to the dataset with datasetId. | `POST` |
+| Endpoint                                             | Description                                       | Method |
+| ---------------------------------------------------- | ------------------------------------------------- | ------ |
+| [`/rest/status`](#status)                            | The status of the server.                         | `GET`  |
+| [`/rest/datasets`](#list-datasets)                   | Returns all datasets.                             | `GET`  |
+| [`/rest/datasets/<datasetId>`](#get-dataset)         | Returns a single dataset.                         | `GET`  |
+| [`/rest/datasets/<datasetId>/headers`](#get-headers) | Returns headers for a dataset.                    | `GET`  |
+| [`/rest/data/<datasetId>`](#data-api)                | Returns data from a dataset.                      | `GET`  |
+| [`/rest/dataset`](#create-dataset)                   | Creates a new dataset                             | `POST` |
+| [`/rest/dataset/<datasetId>/upload`](#upload)        | Uploads a new file to the dataset with datasetId. | `POST` |
 
 
 #### [Status](#status)
@@ -170,5 +171,97 @@ curl -X POST -F "file=@./data/top_1000.csv"  -H "Content-Type: multipart/form-da
 {
    "code" : 200,
    "operation" : "/operation/8"
+}
+```
+
+### [Data API](#data-api)
+
+Returns the raw data from the dataset.
+
+**Options:**
+
+* `headers`: a comma-seperated list of header ids. Defaults to all headers in the dataset.
+
+* `recordid`: the recordid that was last seen. Default is 0.
+
+Example:
+```
+curl localhost:8080/rest/data/1
+{
+   "code" : 200,
+   "results" : [
+      {
+         "displayName" : "ABBREVIATION",
+         "headerId" : 5,
+         "rows" : [
+            "ATL",
+            "BOS",
+            "NOP",
+            "CHI",
+            "DAL",
+            "DEN",
+            "HOU",
+            "LAC",
+            "LAL",
+            "MIA",
+            "MIL",
+            "MIN",
+            "BKN",
+            "NYK",
+            "ORL",
+            "IND",
+            "PHI",
+            "PHX",
+            "POR",
+            "SAC",
+            "SAS",
+            "OKC",
+            "TOR",
+            "UTA",
+            "MEM",
+            "WAS",
+            "DET",
+            "CHA",
+            "CLE",
+            "GSW"
+         ]
+      },
+      {
+         "displayName" : "NICKNAME",
+         "headerId" : 6,
+         "rows" : [
+            "Hawks",
+            "Celtics",
+            "Pelicans",
+            "Bulls",
+            "Mavericks",
+            "Nuggets",
+            "Rockets",
+            "Clippers",
+            "Lakers",
+            "Heat",
+            "Bucks",
+            "Timberwolves",
+            "Nets",
+            "Knicks",
+            "Magic",
+            "Pacers",
+            "76ers",
+            "Suns",
+            "Trail Blazers",
+            "Kings",
+            "Spurs",
+            "Thunder",
+            "Raptors",
+            "Jazz",
+            "Grizzlies",
+            "Wizards",
+            "Pistons",
+            "Hornets",
+            "Cavaliers",
+            "Warriors"
+         ]
+      },
+   ]
 }
 ```

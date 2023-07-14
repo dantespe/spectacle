@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,11 +127,11 @@ func (m *Manager) ListDatasets(req *ListDatasetsRequest) (int, *ListDatasetsResp
 }
 
 func (m *Manager) uploadRecordCount(ds *dataset.Dataset, op *operation.Operation) {
-	// Every 60 seconds, we update the number of records in the Dataset.
-	// We will timeout after 12 hours. This is way more time than needed. We can process
+	// Every 10 seconds, we update the number of records in the Dataset.
+	// We will timeout after 24 hours. This is way more time than needed. We can process
 	// about 500k cells/min.
-	ticker := time.NewTicker(60 * time.Second)
-	timeout := time.NewTicker(12 * time.Hour)
+	ticker := time.NewTicker(10 * time.Second)
+	timeout := time.NewTicker(24 * time.Hour)
 	cancel := make(chan bool)
 
 	go func() {
@@ -467,4 +468,167 @@ func (m *Manager) GetHeaders(req *GetHeadersRequest) (int, *GetHeadersResponse) 
 		Headers: headers,
 		Code:    http.StatusOK,
 	}
+}
+
+func convertHeadersToString(headers []*header.Header) (string, error) {
+	if headers == nil || len(headers) == 0 {
+		return "", fmt.Errorf("can't convert headers for nil or empty list")
+	}
+
+	if len(headers) == 1 {
+		return fmt.Sprintf("HeaderId = %d", headers[0].HeaderId), nil
+	}
+
+	result := "HeaderId IN ("
+	for i, h := range headers {
+		result += fmt.Sprintf("%d", h.HeaderId)
+		// Append , if this is not the last header
+		if i+1 < len(headers) {
+			result += ","
+		}
+	}
+	result += ")"
+	return result, nil
+}
+
+func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
+	// Query for Dataset
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("Query for Dataset failed with error: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// We should 404, because dataset was not found and err was nil.
+	if ds == nil {
+		return http.StatusNotFound, &DataResponse{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("failed to find dataset with id: %d", req.DatasetId),
+		}
+	}
+
+	// Get Headers
+	headers, err := header.GetHeaders(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("failed to get headers with err: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// Exclude headers not included in req.Headers
+	hasExclusions := false
+	if len(req.Headers) > 0 {
+		s := make(map[int64]bool, 0)
+		for _, id := range req.Headers {
+			s[id] = true
+		}
+		tmp := make([]*header.Header, 0)
+		for _, h := range headers {
+			if _, exists := s[h.HeaderId]; exists {
+				hasExclusions = true
+				tmp = append(tmp, h)
+			}
+		}
+		headers = tmp
+	}
+
+	resp := &DataResponse{
+		Code:    http.StatusOK,
+		Results: make([]*ResultSet, 0),
+	}
+
+	if len(headers) == 0 {
+		return http.StatusOK, resp
+	}
+	hs, err := convertHeadersToString(headers)
+	if err != nil {
+		log.Printf("failed to get headers string with err: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+	hm := make(map[int64]*header.Header)
+	for _, h := range headers {
+		hm[h.HeaderId] = h
+	}
+
+	// Return Block of data
+	limit := len(headers) * 1000
+	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d ORDER BY HeaderId, RecordId  LIMIT %d", hs, req.LastRecordId, limit)
+	rows, err := m.eng.DatabaseHandle.Query(q)
+	if err != nil {
+		log.Printf("failed to build query for Cells with err: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+	defer rows.Close()
+
+	prevHeaderId := int64(-1)
+	maxRecordId := int64(-1)
+	for rows.Next() {
+		var recordId int64
+		var headerId int64
+		var rv string
+		if err := rows.Scan(&recordId, &headerId, &rv); err != nil {
+			log.Printf("failed to Scan(RecordId, HeaderId, RawValue) from Cells with err: %v", err)
+			return http.StatusInternalServerError, &DataResponse{
+				Message: "INTERNAL SERVER ERROR",
+				Code:    http.StatusInternalServerError,
+			}
+		}
+
+		if recordId > maxRecordId {
+			maxRecordId = recordId
+		}
+
+		header, ok := hm[headerId]
+		if !ok {
+			log.Printf("failed to get header displayName: %v", err)
+			return http.StatusInternalServerError, &DataResponse{
+				Message: "INTERNAL SERVER ERROR",
+				Code:    http.StatusInternalServerError,
+			}
+		}
+		if prevHeaderId < 0 || prevHeaderId != headerId {
+			resp.Results = append(resp.Results, &ResultSet{
+				HeaderId:    headerId,
+				DisplayName: header.DisplayName,
+				Data:        make([]string, 0),
+			})
+			prevHeaderId = headerId
+		}
+		resp.Results[len(resp.Results)-1].Data = append(resp.Results[len(resp.Results)-1].Data, rv)
+	}
+
+	var highestRecordId int64
+	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(RecordId) FROM Records WHERE DatasetId = $1", ds.DatasetId)
+	if err := row.Scan(&highestRecordId); err != nil {
+		log.Printf("failed to get max recordid with error: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// Populate the Next Page
+	if highestRecordId > maxRecordId {
+		baseUrl := fmt.Sprintf("/data/%d?recordid=%d", ds.DatasetId, maxRecordId+1)
+		if hasExclusions {
+			var headerIds []string
+			for _, h := range headers {
+				headerIds = append(headerIds, fmt.Sprintf("%d", h.HeaderId))
+			}
+			baseUrl += fmt.Sprintf("%s", strings.Join(headerIds, ","))
+		}
+		resp.Next = baseUrl
+	}
+	return http.StatusOK, resp
 }

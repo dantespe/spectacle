@@ -3,6 +3,7 @@ package manager
 import (
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -96,4 +97,44 @@ func (*RequestBuilder) GetHeadersRequestBuilder(c *gin.Context) (*GetHeadersRequ
 		return nil, err
 	}
 	return &GetHeadersRequest{DatasetId: id}, nil
+}
+
+type DataRequest struct {
+	DatasetId    int64   `json:"datasetId"`
+	Headers      []int64 `json:"headers"`
+	LastRecordId int64   `json:"recordid"`
+}
+
+func (*RequestBuilder) DataRequestBuilder(c *gin.Context) (*DataRequest, error) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := make([]int64, 0)
+	if c.Query("headers") != "" {
+		for _, h := range strings.Split(c.Query("headers"), ",") {
+			id, err := strconv.ParseInt(h, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			headers = append(headers, id)
+		}
+	}
+
+	lastRecordId := int64(-1)
+	if c.Query("recordid") != "" {
+		var err error
+		lastRecordId, err = strconv.ParseInt(c.Query("recordid"), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	resp := &DataRequest{
+		DatasetId:    id,
+		Headers:      headers,
+		LastRecordId: lastRecordId,
+	}
+	return resp, nil
 }

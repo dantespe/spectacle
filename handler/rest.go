@@ -97,12 +97,24 @@ func (h *RestHandler) GetHeaders(c *gin.Context) {
 	c.JSON(h.mgr.GetHeaders(req))
 }
 
+func (h *RestHandler) Data(c *gin.Context) {
+	req, err := h.rb.DataRequestBuilder(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, map[string]string{
+			"message": err.Error(),
+		})
+		return
+	}
+	c.JSON(h.mgr.GetData(req))
+}
+
 func (h *RestHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/status":              h.Status,
 		"/datasets":            h.ListDatasets,
 		"/dataset/:id":         h.GetDataset,
 		"/dataset/:id/headers": h.GetHeaders,
+		"/data/:id":            h.Data,
 	}
 }
 

@@ -85,7 +85,7 @@ cell_test: cell/cell.*go
 	$(TEST) cell/cover.out ./cell
 
 clean: docker_clean
-	rm db/dev.db db/test.db $(COVERS) 
+	rm $(COVERS)
 
 format:
 	go fmt ./...

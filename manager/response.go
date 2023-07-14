@@ -50,3 +50,16 @@ type GetHeadersResponse struct {
 	Message string           `json:"error,omitempty"`
 	Code    int              `json:"code"`
 }
+
+type ResultSet struct {
+	HeaderId    int64    `json:"headerId"`
+	DisplayName string   `json:"displayName"`
+	Data        []string `json:"rows"`
+}
+
+type DataResponse struct {
+	Results []*ResultSet `json:"results"`
+	Next    string       `json:"next,omitempty"`
+	Message string       `json:"error,omitempty"`
+	Code    int          `json:"code"`
+}
