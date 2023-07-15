@@ -558,9 +558,20 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		hm[h.HeaderId] = h
 	}
 
+	// Get MaxRecordId for this Block
+	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(tmp.RecordId) FROM (SELECT RecordId FROM Records WHERE RecordId > $1 AND DatasetId = $2 LIMIT 1000) AS tmp", req.LastRecordId, ds.DatasetId)
+	var maxRecordId int64
+	if err := row.Scan(&maxRecordId); err != nil {
+		log.Printf("failed to get max record id with err: %v", err)
+		return http.StatusInternalServerError, &DataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
 	// Return Block of data
 	limit := len(headers) * 1000
-	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d ORDER BY HeaderId, RecordId  LIMIT %d", hs, req.LastRecordId, limit)
+	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d AND RecordId <= %d ORDER BY HeaderId, RecordId  LIMIT %d", hs, req.LastRecordId, maxRecordId, limit)
 	rows, err := m.eng.DatabaseHandle.Query(q)
 	if err != nil {
 		log.Printf("failed to build query for Cells with err: %v", err)
@@ -572,7 +583,6 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	defer rows.Close()
 
 	prevHeaderId := int64(-1)
-	maxRecordId := int64(-1)
 	for rows.Next() {
 		var recordId int64
 		var headerId int64
@@ -583,10 +593,6 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 				Message: "INTERNAL SERVER ERROR",
 				Code:    http.StatusInternalServerError,
 			}
-		}
-
-		if recordId > maxRecordId {
-			maxRecordId = recordId
 		}
 
 		header, ok := hm[headerId]
@@ -609,7 +615,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	}
 
 	var highestRecordId int64
-	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(RecordId) FROM Records WHERE DatasetId = $1", ds.DatasetId)
+	row = m.eng.DatabaseHandle.QueryRow("SELECT MAX(RecordId) FROM Records WHERE DatasetId = $1", ds.DatasetId)
 	if err := row.Scan(&highestRecordId); err != nil {
 		log.Printf("failed to get max recordid with error: %v", err)
 		return http.StatusInternalServerError, &DataResponse{
