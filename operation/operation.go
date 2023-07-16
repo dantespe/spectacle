@@ -3,6 +3,7 @@ package operation
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/dantespe/spectacle/db"
 )
@@ -19,6 +20,7 @@ const (
 
 // Operation is a class that stores the state of a LRO.
 type Operation struct {
+	mu              sync.Mutex
 	OperationId     int64
 	OperationStatus Status
 	ErrorMessage    string
@@ -30,30 +32,23 @@ func New(eng *db.Engine) (*Operation, error) {
 	if eng == nil {
 		return nil, fmt.Errorf("cannot create new operation with nil db.Engine")
 	}
-	stmt, err := eng.DatabaseHandle.Prepare("INSERT INTO Operations(OperationStatus) VALUES(?)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
-	}
-	res, err := stmt.Exec(Status_NOT_STARTED)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert into Operations table with error: %v", err)
-	}
-	operationId, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retreive operationId with error: %v", operationId)
-	}
-	return &Operation{
-		OperationId:     operationId,
+
+	op := &Operation{
 		OperationStatus: Status_NOT_STARTED,
 		eng:             eng,
-	}, nil
+	}
+
+	if err := eng.DatabaseHandle.QueryRow("INSERT INTO Operations(OperationStatus) VALUES($1) RETURNING OperationId", Status_NOT_STARTED).Scan(&op.OperationId); err != nil {
+		return nil, fmt.Errorf("failed to create operation with error: %v", err)
+	}
+	return op, nil
 }
 
 func (o *Operation) markStatus(st Status, errMsg string) error {
 	if o.eng == nil {
 		return fmt.Errorf("cannot mark status when engine is nil")
 	}
-	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET OperationStatus = ?, ErrorMessage = ? WHERE OperationId = ?")
+	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET OperationStatus = $1, ErrorMessage = $2 WHERE OperationId = $3")
 	if err != nil {
 		return fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
 	}
@@ -66,8 +61,26 @@ func (o *Operation) markStatus(st Status, errMsg string) error {
 	return nil
 }
 
+func (o *Operation) markFinished() error {
+	if o.eng == nil {
+		return fmt.Errorf("cannot mark status when engine is nil")
+	}
+	stmt, err := o.eng.DatabaseHandle.Prepare("UPDATE Operations SET FinishTime = CURRENT_TIMESTAMP WHERE OperationId = $1")
+	if err != nil {
+		return fmt.Errorf("failed to build operation PrepareStatement with error: %v", err)
+	}
+	_, err = stmt.Exec(o.OperationId)
+	if err != nil {
+		return fmt.Errorf("failed to update operations table with error: %v", err)
+	}
+	return nil
+}
+
 // MarkRunning sets the OperationStatus to RUNNING.
 func (o *Operation) MarkRunning() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
 	if o.OperationStatus == Status_SUCCESS || o.OperationStatus == Status_FAILED {
 		return fmt.Errorf("cannot mark running on completed operation")
 	}
@@ -76,6 +89,12 @@ func (o *Operation) MarkRunning() error {
 
 // MarkCompleted sets the Status to SUCCESS.
 func (o *Operation) MarkSuccess() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if err := o.markFinished(); err != nil {
+		return err
+	}
 	if o.OperationStatus == Status_NOT_STARTED || o.OperationStatus == Status_RUNNING {
 		return o.markStatus(Status_SUCCESS, "")
 	}
@@ -84,5 +103,16 @@ func (o *Operation) MarkSuccess() error {
 
 // MarkFailed sets the Status to Failed.
 func (o *Operation) MarkFailed(msg string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if err := o.markFinished(); err != nil {
+		return err
+	}
 	return o.markStatus(Status_FAILED, msg)
+}
+
+func (o *Operation) Complete() bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.OperationStatus == Status_FAILED || o.OperationStatus == Status_SUCCESS
 }

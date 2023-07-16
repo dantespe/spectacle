@@ -2,43 +2,43 @@
 package db_test
 
 import (
-	"os"
+	"strings"
 	"testing"
 
 	"github.com/dantespe/spectacle/db"
-	spectesting "github.com/dantespe/spectacle/testing"
 )
 
 func TestNew(t *testing.T) {
 	testCases := []struct {
-		desc                string
-		opts                []db.Option
-		expectedProvider    db.DatabaseProvider
-		expectedEnvironment db.Environment
+		desc                 string
+		opts                 []db.Option
+		expectedProvider     db.DatabaseProvider
+		expectedEnvironment  db.Environment
+		expectedDatabaseName string
 	}{
 		{
 			desc:                "default_no_opts",
 			opts:                []db.Option{},
-			expectedProvider:    db.DatabaseProvider_SQLITE,
+			expectedProvider:    db.DatabaseProvider_POSTGRES,
+			expectedEnvironment: db.Environment_TEST,
+		},
+		{
+			desc: "postgres_dev",
+			opts: []db.Option{
+				db.WithEnvironment(db.Environment_DEVELOPMENT),
+				db.WithoutDatabaseName(),
+			},
+			expectedProvider:    db.DatabaseProvider_POSTGRES,
 			expectedEnvironment: db.Environment_DEVELOPMENT,
 		},
 		{
-			desc: "sqlite_test",
+			desc: "postgres_custom",
 			opts: []db.Option{
-				db.WithDatabaseProvider(db.DatabaseProvider_SQLITE),
-				db.WithEnvironment(db.Environment_TEST),
+				db.WithEnvironment(db.Environment_CUSTOM),
+				db.WithDatabaseName("tmp_0001"),
 			},
-			expectedProvider:    db.DatabaseProvider_SQLITE,
-			expectedEnvironment: db.Environment_TEST,
-		},
-		{
-			desc: "sqlite_test",
-			opts: []db.Option{
-				db.WithDatabaseProvider(db.DatabaseProvider_SQLITE),
-				db.WithEnvironment(db.Environment_TEST),
-			},
-			expectedProvider:    db.DatabaseProvider_SQLITE,
-			expectedEnvironment: db.Environment_TEST,
+			expectedProvider:    db.DatabaseProvider_POSTGRES,
+			expectedEnvironment: db.Environment_CUSTOM,
 		},
 	}
 	for _, tc := range testCases {
@@ -56,28 +56,13 @@ func TestNew(t *testing.T) {
 			if eng.DatabaseHandle == nil {
 				t.Errorf("got nil DatabaseHandle, want non-nil")
 			}
+			conn, err := eng.Connection()
+			if err != nil {
+				t.Fatalf("got unexpected error for Connection(): %v", err)
+			}
+			if !strings.Contains(conn, tc.expectedDatabaseName) {
+				t.Errorf("failed to find database name in Connection: %s", tc.expectedDatabaseName)
+			}
 		})
-	}
-}
-
-func TestCustomSQLite(t *testing.T) {
-	dbFile, err := spectesting.CreateTempSQLiteDB()
-	if err != nil {
-		t.Fatalf("failed to create temp SQLite DB: %v", err)
-	}
-	defer os.Remove(dbFile.Name())
-
-	eng, err := db.New(
-		db.WithSQLiteDatabaseFile(dbFile.Name()),
-	)
-	if err != nil {
-		t.Fatalf("failed to create new DB Engine: %v", err)
-	}
-
-	if eng.DatabaseProvider != db.DatabaseProvider_SQLITE {
-		t.Errorf("Got DatabaseProvider %d, want %d", eng.DatabaseProvider, db.DatabaseProvider_SQLITE)
-	}
-	if eng.DatabaseHandle == nil {
-		t.Errorf("got nil DatabaseHandle, want non-nil")
 	}
 }
