@@ -510,6 +510,11 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		}
 	}
 
+	resp := &DataResponse{
+		Code:    http.StatusOK,
+		Results: make([]*ResultSet, 0),
+	}
+
 	// Get Headers
 	headers, err := header.GetHeaders(m.eng, req.DatasetId)
 	if err != nil {
@@ -536,11 +541,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		}
 		headers = tmp
 	}
-
-	resp := &DataResponse{
-		Code:    http.StatusOK,
-		Results: make([]*ResultSet, 0),
-	}
+	resp.Headers = headers
 
 	if len(headers) == 0 {
 		return http.StatusOK, resp
@@ -552,10 +553,6 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 			Message: "INTERNAL SERVER ERROR",
 			Code:    http.StatusInternalServerError,
 		}
-	}
-	hm := make(map[int64]*header.Header)
-	for _, h := range headers {
-		hm[h.HeaderId] = h
 	}
 
 	// Get MaxRecordId for this Block
@@ -571,7 +568,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 
 	// Return Block of data
 	limit := int64(len(headers)) * req.MaxResults
-	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d AND RecordId <= %d ORDER BY HeaderId, RecordId  LIMIT %d", hs, req.LastRecordId, maxRecordId, limit)
+	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d AND RecordId <= %d ORDER BY RecordId, HeaderId  LIMIT %d", hs, req.LastRecordId, maxRecordId, limit)
 	rows, err := m.eng.DatabaseHandle.Query(q)
 	if err != nil {
 		log.Printf("failed to build query for Cells with err: %v", err)
@@ -582,7 +579,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	}
 	defer rows.Close()
 
-	prevHeaderId := int64(-1)
+	prevRecordId := int64(-1)
 	for rows.Next() {
 		var recordId int64
 		var headerId int64
@@ -595,21 +592,11 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 			}
 		}
 
-		header, ok := hm[headerId]
-		if !ok {
-			log.Printf("failed to get header displayName: %v", err)
-			return http.StatusInternalServerError, &DataResponse{
-				Message: "INTERNAL SERVER ERROR",
-				Code:    http.StatusInternalServerError,
-			}
-		}
-		if prevHeaderId < 0 || prevHeaderId != headerId {
+		if prevRecordId != recordId {
 			resp.Results = append(resp.Results, &ResultSet{
-				HeaderId:    headerId,
-				DisplayName: header.DisplayName,
-				Data:        make([]string, 0),
+				Data: make([]string, 0),
 			})
-			prevHeaderId = headerId
+			prevRecordId = recordId
 		}
 		resp.Results[len(resp.Results)-1].Data = append(resp.Results[len(resp.Results)-1].Data, rv)
 	}
@@ -628,6 +615,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	if highestRecordId > maxRecordId {
 		baseUrl := fmt.Sprintf("/data/%d?recordid=%d", ds.DatasetId, maxRecordId+1)
 		if hasExclusions {
+			baseUrl += "&headers="
 			var headerIds []string
 			for _, h := range headers {
 				headerIds = append(headerIds, fmt.Sprintf("%d", h.HeaderId))

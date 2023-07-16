@@ -52,14 +52,13 @@ type GetHeadersResponse struct {
 }
 
 type ResultSet struct {
-	HeaderId    int64    `json:"headerId"`
-	DisplayName string   `json:"displayName"`
-	Data        []string `json:"rows"`
+	Data []string `json:"data"`
 }
 
 type DataResponse struct {
-	Results []*ResultSet `json:"results"`
-	Next    string       `json:"next,omitempty"`
-	Message string       `json:"error,omitempty"`
-	Code    int          `json:"code"`
+	Results []*ResultSet     `json:"results"`
+	Headers []*header.Header `json:"headers"`
+	Next    string           `json:"next"`
+	Message string           `json:"error,omitempty"`
+	Code    int              `json:"code"`
 }

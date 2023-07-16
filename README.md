@@ -174,94 +174,95 @@ curl -X POST -F "file=@./data/top_1000.csv"  -H "Content-Type: multipart/form-da
 }
 ```
 
-### [Data API](#data-api)
+#### [Data API](#data-api)
 
 Returns the raw data from the dataset.
 
 **Options:**
-
 * `headers`: a comma-seperated list of header ids. Defaults to all headers in the dataset.
-
 * `recordid`: the recordid that was last seen. Default is 0.
+* `maxresults`: the maximum number of rows to return.
+
+
+`DataResponse`: 
+* `code`: status code of the operation. 
+* `headers`: the headers returned.
+* `maxresults`: The maximum number of rows to that were returned.
+* `next`: The URL for the next page of results.
 
 Example:
 ```
-curl localhost:8080/rest/data/1
+curl "localhost:8080/rest/data/1?headers=2,3,8,6,9,10&maxresults=5"
 {
    "code" : 200,
-   "results" : [
+   "headers" : [
       {
-         "displayName" : "ABBREVIATION",
-         "headerId" : 5,
-         "rows" : [
-            "ATL",
-            "BOS",
-            "NOP",
-            "CHI",
-            "DAL",
-            "DEN",
-            "HOU",
-            "LAC",
-            "LAL",
-            "MIA",
-            "MIL",
-            "MIN",
-            "BKN",
-            "NYK",
-            "ORL",
-            "IND",
-            "PHI",
-            "PHX",
-            "POR",
-            "SAC",
-            "SAS",
-            "OKC",
-            "TOR",
-            "UTA",
-            "MEM",
-            "WAS",
-            "DET",
-            "CHA",
-            "CLE",
-            "GSW"
-         ]
+         "displayName" : "TEAM_ID",
+         "headerId" : 2
+      },
+      {
+         "displayName" : "MIN_YEAR",
+         "headerId" : 3
       },
       {
          "displayName" : "NICKNAME",
-         "headerId" : 6,
-         "rows" : [
+         "headerId" : 6
+      },
+      {
+         "displayName" : "CITY",
+         "headerId" : 8
+      },
+      {
+         "displayName" : "ARENA",
+         "headerId" : 9
+      },
+      {
+         "displayName" : "ARENACAPACITY",
+         "headerId" : 10
+      }
+   ],
+   "next" : "/data/1?recordid=6&headers=2,3,6,8,9,10",
+   "results" : [
+      {
+         "data" : [
+            "1610612737",
+            "1949",
             "Hawks",
-            "Celtics",
-            "Pelicans",
-            "Bulls",
-            "Mavericks",
-            "Nuggets",
-            "Rockets",
-            "Clippers",
-            "Lakers",
-            "Heat",
-            "Bucks",
-            "Timberwolves",
-            "Nets",
-            "Knicks",
-            "Magic",
-            "Pacers",
-            "76ers",
-            "Suns",
-            "Trail Blazers",
-            "Kings",
-            "Spurs",
-            "Thunder",
-            "Raptors",
-            "Jazz",
-            "Grizzlies",
-            "Wizards",
-            "Pistons",
-            "Hornets",
-            "Cavaliers",
-            "Warriors"
+            "Atlanta",
+            "State Farm Arena",
+            "18729"
          ]
       },
+      {
+         "data" : [
+            "1610612738",
+            "1946",
+            "Celtics",
+            "Boston",
+            "TD Garden",
+            "18624"
+         ]
+      },
+      {
+         "data" : [
+            "1610612740",
+            "2002",
+            "Pelicans",
+            "New Orleans",
+            "Smoothie King Center",
+            ""
+         ]
+      },
+      {
+         "data" : [
+            "1610612741",
+            "1966",
+            "Bulls",
+            "Chicago",
+            "United Center",
+            "21711"
+         ]
+      }
    ]
 }
 ```
