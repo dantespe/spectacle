@@ -103,6 +103,7 @@ type DataRequest struct {
 	DatasetId    int64   `json:"datasetId"`
 	Headers      []int64 `json:"headers"`
 	LastRecordId int64   `json:"recordid"`
+	MaxResults   int64   `json:"maxresults"`
 }
 
 func (*RequestBuilder) DataRequestBuilder(c *gin.Context) (*DataRequest, error) {
@@ -131,10 +132,20 @@ func (*RequestBuilder) DataRequestBuilder(c *gin.Context) (*DataRequest, error) 
 		}
 	}
 
+	maxResults := int64(100)
+	if c.Query("maxresults") != "" {
+		var err error
+		maxResults, err = strconv.ParseInt(c.Query("maxresults"), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	resp := &DataRequest{
 		DatasetId:    id,
 		Headers:      headers,
 		LastRecordId: lastRecordId,
+		MaxResults:   maxResults,
 	}
 	return resp, nil
 }

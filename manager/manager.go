@@ -559,7 +559,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	}
 
 	// Get MaxRecordId for this Block
-	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(tmp.RecordId) FROM (SELECT RecordId FROM Records WHERE RecordId > $1 AND DatasetId = $2 LIMIT 1000) AS tmp", req.LastRecordId, ds.DatasetId)
+	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(tmp.RecordId) FROM (SELECT RecordId FROM Records WHERE RecordId > $1 AND DatasetId = $2 LIMIT $3) AS tmp", req.LastRecordId, ds.DatasetId, req.MaxResults)
 	var maxRecordId int64
 	if err := row.Scan(&maxRecordId); err != nil {
 		log.Printf("failed to get max record id with err: %v", err)
@@ -570,7 +570,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 	}
 
 	// Return Block of data
-	limit := len(headers) * 1000
+	limit := int64(len(headers)) * req.MaxResults
 	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d AND RecordId <= %d ORDER BY HeaderId, RecordId  LIMIT %d", hs, req.LastRecordId, maxRecordId, limit)
 	rows, err := m.eng.DatabaseHandle.Query(q)
 	if err != nil {
