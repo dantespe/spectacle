@@ -155,6 +155,13 @@ func (u *UIHandler) Visualize(c *gin.Context) {
 	c.HTML(http.StatusOK, "visualize.html", nil)
 }
 
+func (u *UIHandler) Studio(c *gin.Context) {
+	c.HTML(http.StatusOK, "studio.html", gin.H{
+		"title":      "Data Studio",
+		"img_source": "/assets/images/spectacle.png",
+	})
+}
+
 func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/":                 u.Index,
@@ -166,6 +173,7 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 		"/edit_dataset":     u.EditData,
 		"/visualize":        u.Visualize,
 		"/settings":         u.Settings,
+		"/studio":           u.Studio,
 	}
 }
 

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+{{template "top" .}}
+<script>
+	async function get() {
+		const response = await fetch("http://localhost:8080/rest/data/3");
+		const data = await response.json();
+
+		// Add Headers
+		var rows = '<thread><tr>';
+		$.each(data["headers"], function (i, v) {
+			rows += '<th scope="col">' + v["displayName"] + '</th>';
+		})
+		rows += '</tr></thread>'
+
+		// Add Body
+		rows += '<tbody>';
+		var num_rows = data["results"].length;
+		for (let i = 0; i < num_rows; i++) {
+			rows += '<tr>';
+			for (let c = 0; c < data["results"][i]["data"].length; c++) {
+				rows += '<td>' + data["results"][i]["data"][c] + '</td>';
+			}
+			rows += '</tr>';
+		}
+		rows += '</tbody>';
+		$('#table').html(rows);
+	}
+	get();
+</script>
+<div class="table-responsive-md">
+	<table class="table table-striped table-hover" id="table"></table>
+</div>
+{{template "bottom" .}}
