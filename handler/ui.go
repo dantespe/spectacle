@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/dantespe/spectacle/manager"
@@ -156,9 +157,17 @@ func (u *UIHandler) Visualize(c *gin.Context) {
 }
 
 func (u *UIHandler) Studio(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 	c.HTML(http.StatusOK, "studio.html", gin.H{
 		"title":      "Data Studio",
 		"img_source": "/assets/images/spectacle.png",
+		"datasetId":  id,
 	})
 }
 
@@ -173,7 +182,7 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 		"/edit_dataset":     u.EditData,
 		"/visualize":        u.Visualize,
 		"/settings":         u.Settings,
-		"/studio":           u.Studio,
+		"/studio/:id":       u.Studio,
 	}
 }
 

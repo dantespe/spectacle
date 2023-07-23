@@ -15,7 +15,8 @@
 	}
 
 	async function createHeader() {
-		const response = await fetch("http://localhost:8080/rest/data/3");
+		const datasetId = "{{.datasetId}}";
+		const response = await fetch("http://localhost:8080/rest/data/" + datasetId);
 		var data = await response.json();
 
 		// Add Headers
