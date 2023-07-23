@@ -1,9 +1,22 @@
 <!DOCTYPE html>
 {{template "top" .}}
 <script>
-	async function get() {
+	function addRowsHelper(data) {
+		var table = document.getElementById("table");
+		// Add all rows
+		for (let r = 0; r < data["results"].length; r++) {
+			var row = table.insertRow(-1);
+			for (let c = 0; c < data["results"][r]["data"].length; c++) {
+				var cell = row.insertCell(-1);
+				cell.innerHTML = data["results"][r]["data"][c];
+			}
+		}
+		return data["next"];
+	}
+
+	async function createHeader() {
 		const response = await fetch("http://localhost:8080/rest/data/3");
-		const data = await response.json();
+		var data = await response.json();
 
 		// Add Headers
 		var rows = '<thread><tr>';
@@ -11,23 +24,49 @@
 			rows += '<th scope="col">' + v["displayName"] + '</th>';
 		})
 		rows += '</tr></thread>'
-
-		// Add Body
-		rows += '<tbody>';
-		var num_rows = data["results"].length;
-		for (let i = 0; i < num_rows; i++) {
-			rows += '<tr>';
-			for (let c = 0; c < data["results"][i]["data"].length; c++) {
-				rows += '<td>' + data["results"][i]["data"][c] + '</td>';
-			}
-			rows += '</tr>';
-		}
-		rows += '</tbody>';
 		$('#table').html(rows);
+		return addRowsHelper(data);
 	}
-	get();
+
+	async function addRows(data) {
+		if (data === undefined || data === "") {
+			return;
+		}
+		console.log(data);
+		var response = await fetch("http://localhost:8080/rest" + data);
+		var d = await response.json();
+		return addRowsHelper(d);
+	};
+
+	async function listen() {
+		var data;
+		createHeader().then(
+			(response) => {
+				data = response;
+			});
+
+		var extending = false;
+		window.addEventListener('scroll', () => {
+			if (extending) {
+				return;
+			}
+			var d = document.getElementById("scroll-container");
+			var reloadResults = window.innerHeight + window.pageYOffset >= 0.9 * d.offsetHeight;
+			if (reloadResults) {
+				extending = true;
+				addRows(data).then(
+					(response) => {
+						data = response;
+						extending = false;
+					}
+				);
+			}
+		});
+	}
+
+	listen();
 </script>
-<div class="table-responsive-md">
+<div class="table-responsive-md" id="scroll-container">
 	<table class="table table-striped table-hover" id="table"></table>
 </div>
 {{template "bottom" .}}
