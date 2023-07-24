@@ -555,6 +555,12 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		}
 	}
 
+	// Get MinRecordId
+	minRecord := ds.MinRecordId
+	if req.LastRecordId > minRecord {
+		minRecord = req.LastRecordId
+	}
+
 	// Get MaxRecordId for this Block
 	row := m.eng.DatabaseHandle.QueryRow("SELECT MAX(tmp.RecordId) FROM (SELECT RecordId FROM Records WHERE RecordId > $1 AND DatasetId = $2 LIMIT $3) AS tmp", req.LastRecordId, ds.DatasetId, req.MaxResults)
 	var maxRecordId int64
@@ -568,7 +574,7 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 
 	// Return Block of data
 	limit := int64(len(headers)) * req.MaxResults
-	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId > %d AND RecordId <= %d ORDER BY RecordId, HeaderId  LIMIT %d", hs, req.LastRecordId, maxRecordId, limit)
+	q := fmt.Sprintf("SELECT RecordId, HeaderId, RawValue FROM Cells WHERE %s AND RecordId >= %d AND RecordId <= %d ORDER BY RecordId, HeaderId  LIMIT %d", hs, minRecord, ds.MaxRecordId, limit)
 	rows, err := m.eng.DatabaseHandle.Query(q)
 	if err != nil {
 		log.Printf("failed to build query for Cells with err: %v", err)
@@ -601,18 +607,8 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		resp.Results[len(resp.Results)-1].Data = append(resp.Results[len(resp.Results)-1].Data, rv)
 	}
 
-	var highestRecordId int64
-	row = m.eng.DatabaseHandle.QueryRow("SELECT MAX(RecordId) FROM Records WHERE DatasetId = $1", ds.DatasetId)
-	if err := row.Scan(&highestRecordId); err != nil {
-		log.Printf("failed to get max recordid with error: %v", err)
-		return http.StatusInternalServerError, &DataResponse{
-			Message: "INTERNAL SERVER ERROR",
-			Code:    http.StatusInternalServerError,
-		}
-	}
-
 	// Populate the Next Page
-	if highestRecordId > maxRecordId {
+	if ds.MaxRecordId > maxRecordId {
 		baseUrl := fmt.Sprintf("/data/%d?recordid=%d", ds.DatasetId, maxRecordId+1)
 		if hasExclusions {
 			baseUrl += "&headers="

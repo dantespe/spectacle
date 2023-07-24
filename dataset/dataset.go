@@ -21,6 +21,10 @@ type Dataset struct {
 	// HeadersSet
 	HeadersSet bool `json:"headersSet"`
 
+	MinRecordId int64 `json:"-"`
+
+	MaxRecordId int64 `json:"-"`
+
 	eng *db.Engine
 }
 
@@ -77,7 +81,7 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 	}
 
 	// Get Dataset
-	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet, NumRecords FROM Datasets WHERE DatasetId = $1", datasetId)
+	rows, err := eng.DatabaseHandle.Query("SELECT DisplayName, HeadersSet, NumRecords, MinRecordId, MaxRecordId FROM Datasets WHERE DatasetId = $1", datasetId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for dataset with error: %v", err)
 	}
@@ -90,7 +94,7 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 		return nil, nil
 	}
 
-	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet, &ds.NumRecords); err != nil {
+	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet, &ds.NumRecords, &ds.MinRecordId, &ds.MaxRecordId); err != nil {
 		// 404: We did not find the dataset given datasetId
 		return nil, nil
 	}
@@ -159,6 +163,7 @@ func (d *Dataset) SetHeaders(headers bool) error {
 }
 
 func (d *Dataset) UpdateNumRecords() error {
+	// Update TotalNumRecords
 	stmt, err := d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET NumRecords = (SELECT COUNT(*) FROM RecordsProcessed WHERE DatasetId = $1) WHERE DatasetId = $1")
 	if err != nil {
 		return fmt.Errorf("failed to create dataset NumRecords prepared statement with error: %v", err)
@@ -167,8 +172,30 @@ func (d *Dataset) UpdateNumRecords() error {
 	if err != nil {
 		return fmt.Errorf("failed to update dataset NumRecords with error: %v", err)
 	}
-	if err := d.eng.DatabaseHandle.QueryRow("SELECT NumRecords FROM Datasets WHERE DatasetId = $1", d.DatasetId).Scan(&d.NumRecords); err != nil {
-		return fmt.Errorf("fialed to retrieve dataset NumRecords with error: %v", d.DatasetId)
+
+	// Update Min Record
+	stmt, err = d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET MinRecordId = (SELECT MIN(RecordId) FROM RecordsProcessed WHERE DatasetId = $1) WHERE DatasetId = $1")
+	if err != nil {
+		return fmt.Errorf("failed to create dataset NumRecords prepared statement with error: %v", err)
+	}
+	_, err = stmt.Exec(d.DatasetId)
+	if err != nil {
+		return fmt.Errorf("failed to update dataset NumRecords with error: %v", err)
+	}
+
+	// Update Max Record
+	stmt, err = d.eng.DatabaseHandle.Prepare("UPDATE Datasets SET MaxRecordId = (SELECT MAX(RecordId) FROM RecordsProcessed WHERE DatasetId = $1) WHERE DatasetId = $1")
+	if err != nil {
+		return fmt.Errorf("failed to create dataset NumRecords prepared statement with error: %v", err)
+	}
+	_, err = stmt.Exec(d.DatasetId)
+	if err != nil {
+		return fmt.Errorf("failed to update dataset NumRecords with error: %v", err)
+	}
+
+	// Update values
+	if err := d.eng.DatabaseHandle.QueryRow("SELECT NumRecords, MinRecordId, MaxRecordId FROM Datasets WHERE DatasetId = $1", d.DatasetId).Scan(&d.NumRecords, &d.MinRecordId, &d.MaxRecordId); err != nil {
+		return fmt.Errorf("failed to retrieve dataset NumRecords with error: %v", d.DatasetId)
 	}
 	return nil
 }
