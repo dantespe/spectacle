@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+{{template "top" .}}
+    <div class="container-fluid">
+        <div class="row flex-nowrap" style="width: 93%;">
+        {{template "visualize_nav" .}}
+            <main>
+                <div class="input-group" style="padding-top: .5cm;padding-left: .3cm;">
+                    <div class="form-row col-7">
+                        <label for="chartTypes" class="input-group-text">Select a Chart Type:</label>
+                        <select name="chart_types" class="form-select w-25" id="chartTypes">
+                            <option value="">Chart Types</option>
+                            <!-- <option value="area">Area</option> -->
+                            <option value="bar">Bar</option>
+                            <option value="stackedBar">Stacked Bar</option>
+                            <option value="horizontalBar">Horizontal Bar</option>
+                            <option value="bubble">Bubble</option>
+                            <option value="donut">Donut</option>
+                            <option value="pie">Pie</option>
+                            <option value="line">Line</option>
+                            <option value="polarArea">Polar Area</option>
+                            <option value="radar">Radar</option>
+                            <option value="scatter">Scatter</option>
+                        </select>
+                    </div>
+                    <!-- <button type="button" class="btn btn-dark btn-sm" id="selected">Save Chart</button> -->
+                    <div class="col-5" style="padding-right: 1cm;">
+                        <select name="dataset_names" id="datasetNames" class="form-select" style="float: right;width: 48%;"></select>
+                    </div>
+                </div>
+                
+                <div>
+                    <div id="div1" style="width: 75%;height: 95%;margin-right: 10px;padding: 10px;border: 1px solid black;aspect-ratio: 100/70;">
+                        <button id="clear" type="button" class="btn-close" aria-label="Close" style="float:right"></button>
+                        <div>
+                            <canvas id="new_chart"></canvas>
+                        </div>
+                        <br>
+                        <div class="form-row" style="height: 5%;">
+                            <!-- <label for="xDropArea" class="input-group-text" style="width: 10%;">X Axis</label> -->
+                            <div id="xDropArea" name="xDropArea" ondrop="dropStart(event)" ondragover="allowDrop(event)"\
+                             style="justify-content: center;width: 90%;border: 1px solid black;"></div>
+                        </div>
+                        <br>
+                        <div class="form-row" style="height: 5%;">
+                            <!-- <label for="yDropArea" class="input-group-text"  style="width: 10%;">Y Axis</label> -->
+                            <div id="yDropArea" name="yDropArea" ondrop="dropStart(event)" ondragover="allowDrop(event)" \
+                            style="justify-content: center;width: 90%;border: 1px solid black;"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="div2" style="width: 20%;height: 95%"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+    <script src="charts/builder.js"></script>
+    <script type="text/javascript">
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = "copy";
+        }
+        
+        function drag(ev) {
+            ev.dataTransfer.setData("text/html", ev.target.innerHTML);
+            ev.dataTransfer.dropEffect = "copy";
+        }
+
+        function dropStart(ev) {
+            ev.preventDefault();
+            var data = ev.dataTransfer.getData("text/html");
+            var span = document.createElement("span");
+            span.setAttribute("class", "badge badge-primary");
+            span.innerHTML += data + '<button id="pillClear" type="button" class="btn-close" aria-label="Close" style="float:right"></button>';
+            ev.target.innerHTML += ' ' + span.outerHTML + ' ';
+
+        }
+
+        async function getDatasets() {
+            try {
+                const response = await fetch(
+                    'http://localhost:8080/rest/datasets',
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get datasets due to ${error}`);
+            }
+        }
+
+        const dataset_names = document.getElementById('datasetNames');
+        const chart_types = document.getElementById('chartTypes');
+        const clear_chart_elem = document.getElementById('clear');
+        const ctx = document.getElementById('new_chart');
+
+        // document.getElementById('pillClear').addEventListener('click', (event) => {
+        //     // event.remove();
+        //     nil;
+        // });
+
+
+        clear_chart_elem.addEventListener('click', (event) => {
+            if (newChart) {
+                newChart.destroy();
+            };
+        });
+
+        const datasetsResp = getDatasets();
+        datasetsResp.then((data) => {
+            const result = data.results
+            let resultIdx = 0
+            result.forEach(ds => {
+                if (resultIdx == 0) {
+                    dataset_names.innerHTML += '<option id="' + ds['datasetId'] + '" selected><span>' + ds['displayName'] + '(ID: ' + ds['datasetId'] + ')</span></option>'
+                } else {
+                    dataset_names.innerHTML += '<option id="' + ds['datasetId'] + '"><span>' + ds['displayName'] + '(ID: ' + ds['datasetId'] + ')</span></option>'
+                }
+                resultIdx++
+            })
+            show_dataset_columns();
+        });
+
+        async function getColumns() {
+            try {
+                var options = dataset_names.options;
+                var selectedDS = dataset_names.options[dataset_names.selectedIndex];
+                const response = await fetch(
+                    'http://localhost:8080/rest/dataset/' + String(selectedDS.id) + '/headers',
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get products: ${error}`);
+            }
+        }
+
+        async function getColumnData() {
+            try {
+                var options = dataset_names.options;
+                var selectedDS = dataset_names.options[dataset_names.selectedIndex];
+                const response = await fetch(
+                    'http://localhost:8080/rest/data/' + String(selectedDS.id),
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get products: ${error}`)
+            }
+        }
+
+        function show_dataset_columns() {
+            const column_values = document.getElementById("div2");
+            const columnResp = getColumns();
+            const columnData = getColumnData();
+            columnResp.then((colResp) => {
+                columnData.then((colData) => {
+                    const cdata = Array.from({length: 4}, () => ([]));
+                    colData.results.forEach((elem, idx) => {                            
+                        if (idx != 0) {
+                            elem['data'].forEach((pt, ptIdx) => {
+                                    cdata[ptIdx].push(pt)
+                            })
+                        }
+                    })
+
+                    const headers = colResp.results
+
+                    column_values.innerHTML = ""
+                    column_values.innerHTML += '<ul class="list-group list-group-flush">';
+
+                    var missingHeaderCount = 0
+                    headers.forEach((element, idx) => {
+                        if (element.displayName === "") {
+                            var elemName = 'untitled_' + String(missingHeaderCount);
+                            missingHeaderCount++;
+                        } else {
+                            var elemName = element.displayName;
+                        }
+                        column_values.innerHTML += '<li class="list-group-item" draggable="true" ondragstart="drag(event)" id="' 
+                        + element + '"><span value="' + cdata[idx] + '" id="' + elemName + 'Pill">' + elemName + '</span></li>';
+                    });
+
+                    column_values.innerHTML += '</ul>';
+                })
+            });
+        }
+
+        let x_data = new Array();
+        let y_data = new Array();
+        var newChart;
+
+        function chart_handler(selection, x, y) {
+            if (newChart) {
+                newChart.destroy();
+            };
+
+            var ctype;
+            if (['bar', 'stackedBar','horizontalBar'].includes(selection)) {
+                ctype = create_bar_chart(selection, x, y);
+            }   
+            else if (selection == 'bubble') {
+                ctype = create_bubble_chart(x, y);
+            }
+            else if (selection == 'donut'){
+                ctype = create_doughnut_chart(x, y);
+            }
+            else if (selection == 'pie'){
+                ctype = create_pie_chart(x, y);
+            }
+            else if (selection == 'line'){
+                ctype = create_line_chart(x, y);
+            }
+            else if (selection == 'polarArea'){
+                ctype = create_polarArea_chart(x, y);
+            }
+            else if (selection == 'radar'){
+                ctype = create_radar_chart(x, y);
+            }
+            else if (selection == 'scatter'){
+                ctype = create_scatter_chart(x, y);
+            } 
+            else {
+                ctype = {};
+            };
+
+            if (ctype != {}) {
+                newChart = new Chart(ctx, ctype);
+            };
+            
+        }
+
+        function parse_string(str) {
+            return str.split(',');
+        }
+
+        document.addEventListener('drop', (event) => {
+            var xField = document.getElementById("xDropArea");
+            var xfieldItems = xField.querySelectorAll('[id$="Pill"]');
+
+            var yField = document.getElementById("yDropArea");
+            var yfieldItems = yField.querySelectorAll('[id$="Pill"]');
+
+            var x_data = new Array();
+            xfieldItems.forEach(item => {
+                var xvalues = item.getAttribute('value');
+                xvalues = parse_string(xvalues);
+
+                var jsonItem = {
+                    'data': xvalues, 
+                    'dataName': item.innerText
+                };
+                x_data.push(jsonItem);
+            });
+
+            var y_data = new Array();
+            yfieldItems.forEach(item => {
+                var yvalues = item.getAttribute('value');
+                yvalues = parse_string(yvalues);
+
+                y_data.push({
+                    'data': yvalues, 
+                    'dataName': item.innerText
+                });
+            });
+
+            var chartVal = chart_types.options[chart_types.selectedIndex].getAttribute('value');
+            chart_handler(chartVal, x_data, y_data);
+        });
+
+        
+        chart_types.addEventListener('change', (event) => {
+            chart_handler(event.target.value, x_data, y_data);
+        });
+
+        dataset_names.addEventListener('change', (event) => {
+            show_dataset_columns();
+        });
+
+
+    </script>
+{{template "bottom" .}}

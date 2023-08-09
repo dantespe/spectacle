@@ -24,10 +24,12 @@ func AddUIHandlerRoutes(r *gin.Engine, wd string) error {
 	r.LoadHTMLGlob("templates/**/*")
 
 	var assets_folder string = wd + "/assets"
+	var charts_folder string = wd + "/charts"
 	var page_files string = wd + "/pages"
 	var style_file string = wd + "/templates/layout/style.css"
 
 	r.Static("assets", assets_folder)
+	r.Static("charts", charts_folder)
 	r.Static("templates/pages", page_files)
 	r.StaticFile("/style.css", style_file)
 
@@ -111,7 +113,21 @@ func (u *UIHandler) MakeDataset(c *gin.Context) {
 }
 
 func (u *UIHandler) CreateChart(c *gin.Context) {
-	c.HTML(http.StatusOK, "chart_builder.html", nil)
+	test_bytes, err1 := json.Marshal([3][3]int{{45, 10, 443}, {2901, 500, 195}, {}})
+	if err1 != nil {
+		log.Printf("There's a bug while marshalling array in ui.CreateChart: %v", err1)
+	}
+
+	test_spans, err2 := json.Marshal([3]string{"column_1", "column_2", "column_3"})
+	if err2 != nil {
+		log.Printf("There's a bug while marshalling array in ui.CreateChart: %v", err2)
+	}
+
+	c.HTML(http.StatusOK, "chart_builder.html",
+		gin.H{
+			"test_spans":  string(test_spans),
+			"test_values": string(test_bytes),
+		})
 }
 
 func (u *UIHandler) CreateTemplate(c *gin.Context) {
@@ -122,12 +138,18 @@ func (u *UIHandler) CreateDashboard(c *gin.Context) {
 	c.HTML(http.StatusOK, "dashboard_builder.html", nil)
 }
 
+func (u *UIHandler) CreateStory(c *gin.Context) {
+	c.HTML(http.StatusOK, "dashboard_builder.html", nil)
+}
+
 func (u *UIHandler) CreateSummary(c *gin.Context) {
 	c.HTML(http.StatusOK, "summary_builder.html", nil)
 }
 
 func (u *UIHandler) ImportData(c *gin.Context) {
-	c.HTML(http.StatusCreated, "import.html", nil)
+	c.HTML(http.StatusCreated, "import.html", gin.H{
+		"pageType": "add",
+	})
 }
 
 func (u *UIHandler) EditData(c *gin.Context) {
@@ -143,8 +165,9 @@ func (u *UIHandler) EditData(c *gin.Context) {
 	}
 	json.Unmarshal(newBodyBytes, &datasets)
 
-	c.HTML(http.StatusOK, "edit_dataset.html", gin.H{
+	c.HTML(http.StatusOK, "import.html", gin.H{
 		"datasets": datasets.Results,
+		"pageType": "edit",
 	})
 }
 
@@ -178,6 +201,7 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 		"/create_template":  u.CreateTemplate,
 		"/create_dashboard": u.CreateDashboard,
 		"/create_summary":   u.CreateSummary,
+		"/create_story":     u.CreateStory,
 		"/create_dataset":   u.ImportData,
 		"/edit_dataset":     u.EditData,
 		"/visualize":        u.Visualize,
@@ -189,6 +213,5 @@ func (u *UIHandler) GetRoutes() map[string]gin.HandlerFunc {
 func (u *UIHandler) PostRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/create_dataset": u.MakeDataset,
-		// "/edit_dataset":   u.EditData,
 	}
 }
