@@ -1,415 +1,291 @@
 <!DOCTYPE html>
 {{template "top" .}}
     <div class="container-fluid">
-        <div class="row flex-nowrap">
+        <div class="row flex-nowrap" style="width: 93%;">
         {{template "visualize_nav" .}}
-            <main class="col ps-md-2 pt-2">
-
-                <div>
-                <label for="chartTypes">Select a Chart Type:</label>
-                <select name="chart_types" id="chartTypes">
-                    <option value="">Chart Types</option>
-                    <!-- <option value="area">Area</option> -->
-                    <option value="bar">Bar</option>
-                    <option value="stackedBar">Stacked Bar</option>
-                    <option value="horizontalBar">Horizontal Bar</option>
-                    <option value="bubble">Bubble</option>
-                    <option value="donut">Donut</option>
-                    <option value="pie">Pie</option>
-                    <option value="line">Line</option>
-                    <option value="polarArea">Polar Area</option>
-                    <option value="radar">Radar</option>
-                    <option value="scatter">Scatter</option>
-                </select>
-                <button type="button" class="btn btn-dark btn-sm" id="selected">Save Chart</button>
-                </div>
-                <div id="div1" ondrop="drop(event)" ondragover="allowDrop(event)" style="float: left;width: 950px;height: 650px;margin: 10px;padding: 10px;border: 1px solid black;">
-                    <button id="clear" type="button" class="btn-close" aria-label="Close" style="float:right"></button>
-                    <div>
-                        <canvas id="new_chart" draggable="true" ondragstart="drag(event)"></canvas>
+            <main>
+                <div class="input-group" style="padding-top: .5cm;padding-left: .3cm;">
+                    <div class="form-row col-7">
+                        <label for="chartTypes" class="input-group-text">Select a Chart Type:</label>
+                        <select name="chart_types" class="form-select w-25" id="chartTypes">
+                            <option value="">Chart Types</option>
+                            <!-- <option value="area">Area</option> -->
+                            <option value="bar">Bar</option>
+                            <option value="stackedBar">Stacked Bar</option>
+                            <option value="horizontalBar">Horizontal Bar</option>
+                            <option value="bubble">Bubble</option>
+                            <option value="donut">Donut</option>
+                            <option value="pie">Pie</option>
+                            <option value="line">Line</option>
+                            <option value="polarArea">Polar Area</option>
+                            <option value="radar">Radar</option>
+                            <option value="scatter">Scatter</option>
+                        </select>
                     </div>
-
+                    <!-- <button type="button" class="btn btn-dark btn-sm" id="selected">Save Chart</button> -->
+                    <div class="col-5" style="padding-right: 1cm;">
+                        <select name="dataset_names" id="datasetNames" class="form-select" style="float: right;width: 48%;"></select>
+                    </div>
                 </div>
-
-                <div id="div2" ondrop="drop(event)" ondragover="allowDrop(event)" style="float: left;width: 275px;height: 650px;margin: 10px;padding: 10px;border: 1px solid black;"></div>
+                
+                <div>
+                    <div id="div1" style="width: 75%;height: 95%;margin-right: 10px;padding: 10px;border: 1px solid black;aspect-ratio: 100/70;">
+                        <button id="clear" type="button" class="btn-close" aria-label="Close" style="float:right"></button>
+                        <div>
+                            <canvas id="new_chart"></canvas>
+                        </div>
+                        <br>
+                        <div class="form-row" style="height: 5%;">
+                            <!-- <label for="xDropArea" class="input-group-text" style="width: 10%;">X Axis</label> -->
+                            <div id="xDropArea" name="xDropArea" ondrop="dropStart(event)" ondragover="allowDrop(event)"\
+                             style="justify-content: center;width: 90%;border: 1px solid black;"></div>
+                        </div>
+                        <br>
+                        <div class="form-row" style="height: 5%;">
+                            <!-- <label for="yDropArea" class="input-group-text"  style="width: 10%;">Y Axis</label> -->
+                            <div id="yDropArea" name="yDropArea" ondrop="dropStart(event)" ondragover="allowDrop(event)" \
+                            style="justify-content: center;width: 90%;border: 1px solid black;"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="div2" style="width: 20%;height: 95%"></div>
+                </div>
             </main>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
-    <!-- <script src="charts/builder.js"></script> -->
+    <script src="charts/builder.js"></script>
     <script type="text/javascript">
 
-        var test_values = "{{.test_spans}}";
-        test_values = JSON.parse(test_values);
-        test_values.forEach(element => {
-            document.getElementById("div2").innerHTML += '<a id="' + element + '">' + element + '</a>';
-        });
-
-        function create_bar_chart(chart_type) {
-            const labels = [1, 2, 3, 4, 5, 6, 7];
-            const data = {
-                labels: labels,
-                datasets: [{
-                    label: 'My First Dataset',
-                    data: [65, 59, 80, 81, 56, 55, 40],
-                    backgroundColor: [
-                    'rgba(255, 99, 132, 0.2)',
-                    'rgba(255, 159, 64, 0.2)',
-                    'rgba(255, 205, 86, 0.2)',
-                    'rgba(75, 192, 192, 0.2)',
-                    'rgba(54, 162, 235, 0.2)',
-                    'rgba(153, 102, 255, 0.2)',
-                    'rgba(201, 203, 207, 0.2)'
-                    ],
-                    borderColor: [
-                    'rgb(255, 99, 132)',
-                    'rgb(255, 159, 64)',
-                    'rgb(255, 205, 86)',
-                    'rgb(75, 192, 192)',
-                    'rgb(54, 162, 235)',
-                    'rgb(153, 102, 255)',
-                    'rgb(201, 203, 207)'
-                    ],
-                    borderWidth: 1
-                }]
-            };
-            if (chart_type == 'stackedBar' || chart_type == 'bar') {
-                return {
-                    type: 'bar',
-                    data: data,
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'World population per region (in millions)',
-                        }
-                    },
-                };
-            }
-            else {
-                return {
-                    type: 'bar',
-                    data: data,
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'World population per region (in millions)',
-                        },
-                        indexAxis: 'y'
-                    },
-                };
-            }
-        }
-
-        function create_doughnut_chart() {
-            const data = {
-                labels: [
-                'Red',
-                'Blue',
-                'Yellow'
-                ],
-                datasets: [{
-                label: 'My First Dataset',
-                data: [300, 50, 100],
-                backgroundColor: [
-                    'rgb(255, 99, 132)',
-                    'rgb(54, 162, 235)',
-                    'rgb(255, 205, 86)'
-                ],
-                hoverOffset: 4
-                }]
-            };
-            return {
-                type: 'doughnut', 
-                data: data, 
-                options: {
-                    aspectRatio: 2
-                }
-            };
-        }
-
-        function create_line_chart() {
-            var data = {
-                labels: [1500,1600,1700,1750,1800,1850,1900,1950,1999,2050],
-                datasets: [{ 
-                    data: [200, 349, 6, 600],
-                    label: 'Africa',
-                    borderColor: '#3e95cd',
-                    fill: false
-                }, { 
-                    data: [282,350,411,502,635,809,947,1402,3700,5267],
-                    label: 'Asia',
-                    borderColor: '#8e5ea2',
-                    fill: false
-                }, { 
-                    data: [168,170,178,190,203,276,408,547,675,734],
-                    label: 'Europe',
-                    borderColor: '#3cba9f',
-                    fill: false
-                }, { 
-                    data: [40,20,10,16,24,38,74,167,508,784],
-                    label: 'Latin America',
-                    borderColor: '#e8c3b9',
-                    fill: false
-                }, { 
-                    data: [6,3,2,2,7,26,82,172,312,433],
-                    label: 'North America',
-                    borderColor: '#c45850',
-                    fill: false
-                }
-                ]
-            };
-
-            return {
-                type: 'line', 
-                data: data, 
-                options: {}
-            };
-        }
-
-        function create_scatter_chart() {
-            const data = {
-                datasets: [{
-                label: 'Scatter Dataset',
-                data: [{
-                    x: -10,
-                    y: 0
-                }, {
-                    x: 0,
-                    y: 10
-                }, {
-                    x: 10,
-                    y: 5
-                }, {
-                    x: 0.5,
-                    y: 5.5
-                }],
-                backgroundColor: 'rgb(255, 99, 132)'
-                }],
-            };
-            return {
-                type: 'scatter', 
-                data: data, 
-                options: {}
-            };
-        }
-
-        function create_bubble_chart() {
-            const data = {
-                datasets: [{
-                label: 'First Dataset',
-                data: [{
-                    x: 20,
-                    y: 30,
-                    r: 15
-                }, {
-                    x: 40,
-                    y: 10,
-                    r: 10
-                }],
-                backgroundColor: 'rgb(255, 99, 132)'
-                }]
-            };
-            return {
-                type: 'bubble', 
-                data: data, 
-                options: {}
-            };
-        }
-
-        function create_pie_chart() {
-            const data = {
-                labels: [
-                    'Red',
-                    'Blue',
-                    'Yellow'
-                ],
-                datasets: [{
-                label: 'My First Dataset',
-                data: [300, 50, 100],
-                backgroundColor: [
-                    'rgb(255, 99, 132)',
-                    'rgb(54, 162, 235)',
-                    'rgb(255, 205, 86)'
-                ],
-                hoverOffset: 4
-                }]
-            };
-            return {
-                type: 'pie', 
-                data: data, 
-                options: {
-                    aspectRatio: 2
-                }
-            };
-        }
-
-        function create_radar_chart() {
-            const data = {
-                labels: [
-                    'Eating',
-                    'Drinking',
-                    'Sleeping',
-                    'Designing',
-                    'Coding',
-                    'Cycling',
-                    'Running'
-                ],
-                datasets: [{
-                    label: 'My First Dataset',
-                    data: [65, 59, 90, 81, 56, 55, 40],
-                    fill: true,
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgb(255, 99, 132)',
-                    pointBackgroundColor: 'rgb(255, 99, 132)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(255, 99, 132)'
-                }, {
-                    label: 'My Second Dataset',
-                    data: [28, 48, 40, 19, 96, 27, 100],
-                    fill: true,
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    borderColor: 'rgb(54, 162, 235)',
-                    pointBackgroundColor: 'rgb(54, 162, 235)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(54, 162, 235)'
-                }]
-            };
-            return {
-                type: "radar", 
-                data: data, 
-                options: {
-                    elements: {
-                        line: {
-                            borderWidth: 3
-                        }
-                    },
-                    aspectRatio: 2
-                }
-            };
-        }
-
-        function create_polarArea_chart() {
-            const data = {
-                labels: [
-                    'Red',
-                    'Green',
-                    'Yellow',
-                    'Grey',
-                    'Blue'
-                ],
-                datasets: [{
-                    label: 'My First Dataset',
-                    data: [11, 16, 7, 3, 14],
-                    backgroundColor: [
-                        'rgb(255, 99, 132)',
-                        'rgb(75, 192, 192)',
-                        'rgb(255, 205, 86)',
-                        'rgb(201, 203, 207)',
-                        'rgb(54, 162, 235)'
-                    ]
-                }]
-            };
-            return {
-                type: 'polarArea', 
-                data: data, 
-                options: {
-                    aspectRatio: 2
-                }
-            };
-        }
-
-        function chart_handler(selection) {
-            if (['bar', 'stackedBar','horizontalBar'].includes(selection)) {
-                return create_bar_chart(selection);
-            }   
-            else if (selection == 'bubble') {
-                return create_bubble_chart();
-            }
-            else if (selection == 'donut'){
-                return create_doughnut_chart();
-            }
-            else if (selection == 'pie'){
-                return create_pie_chart();
-            }
-            else if (selection == 'line'){
-                return create_line_chart();
-            }
-            else if (selection == 'polarArea'){
-                return create_polarArea_chart();
-            }
-            else if (selection == 'radar'){
-                return create_radar_chart();
-            }
-            else if (selection == 'scatter'){
-                return create_scatter_chart();
-            } 
-            else {
-                return {}
-            };
-            
-        }
         function allowDrop(ev) {
             ev.preventDefault();
+            ev.dataTransfer.dropEffect = "copy";
         }
         
         function drag(ev) {
-            ev.dataTransfer.setData("text", ev.target.id);
+            ev.dataTransfer.setData("text/html", ev.target.innerHTML);
+            ev.dataTransfer.dropEffect = "copy";
         }
-        
-        function drop(ev) {
+
+        function dropStart(ev) {
             ev.preventDefault();
-            var data = ev.dataTransfer.getData("text");
-            ev.target.appendChild(document.getElementById(data));
+            var data = ev.dataTransfer.getData("text/html");
+            var span = document.createElement("span");
+            span.setAttribute("class", "badge badge-primary");
+            span.innerHTML += data + '<button id="pillClear" type="button" class="btn-close" aria-label="Close" style="float:right"></button>';
+            ev.target.innerHTML += ' ' + span.outerHTML + ' ';
+
         }
 
-        document.getElementById('clear').addEventListener('click', (event) => {
+        async function getDatasets() {
+            try {
+                const response = await fetch(
+                    'http://localhost:8080/rest/datasets',
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get datasets due to ${error}`);
+            }
+        }
+
+        const dataset_names = document.getElementById('datasetNames');
+        const chart_types = document.getElementById('chartTypes');
+        const clear_chart_elem = document.getElementById('clear');
+        const ctx = document.getElementById('new_chart');
+
+        // document.getElementById('pillClear').addEventListener('click', (event) => {
+        //     // event.remove();
+        //     nil;
+        // });
+
+
+        clear_chart_elem.addEventListener('click', (event) => {
             if (newChart) {
-                newChart.destroy()
+                newChart.destroy();
             };
         });
 
-        var newChart
-        document.getElementById('chartTypes').addEventListener('change', (event) => {
+        const datasetsResp = getDatasets();
+        datasetsResp.then((data) => {
+            const result = data.results
+            let resultIdx = 0
+            result.forEach(ds => {
+                if (resultIdx == 0) {
+                    dataset_names.innerHTML += '<option id="' + ds['datasetId'] + '" selected><span>' + ds['displayName'] + '(ID: ' + ds['datasetId'] + ')</span></option>'
+                } else {
+                    dataset_names.innerHTML += '<option id="' + ds['datasetId'] + '"><span>' + ds['displayName'] + '(ID: ' + ds['datasetId'] + ')</span></option>'
+                }
+                resultIdx++
+            })
+            show_dataset_columns();
+        });
+
+        async function getColumns() {
+            try {
+                var options = dataset_names.options;
+                var selectedDS = dataset_names.options[dataset_names.selectedIndex];
+                const response = await fetch(
+                    'http://localhost:8080/rest/dataset/' + String(selectedDS.id) + '/headers',
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get products: ${error}`);
+            }
+        }
+
+        async function getColumnData() {
+            try {
+                var options = dataset_names.options;
+                var selectedDS = dataset_names.options[dataset_names.selectedIndex];
+                const response = await fetch(
+                    'http://localhost:8080/rest/data/' + String(selectedDS.id),
+                );
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Could not get products: ${error}`)
+            }
+        }
+
+        function show_dataset_columns() {
+            const column_values = document.getElementById("div2");
+            const columnResp = getColumns();
+            const columnData = getColumnData();
+            columnResp.then((colResp) => {
+                columnData.then((colData) => {
+                    const cdata = Array.from({length: 4}, () => ([]));
+                    colData.results.forEach((elem, idx) => {                            
+                        if (idx != 0) {
+                            elem['data'].forEach((pt, ptIdx) => {
+                                    cdata[ptIdx].push(pt)
+                            })
+                        }
+                    })
+
+                    const headers = colResp.results
+
+                    column_values.innerHTML = ""
+                    column_values.innerHTML += '<ul class="list-group list-group-flush">';
+
+                    var missingHeaderCount = 0
+                    headers.forEach((element, idx) => {
+                        if (element.displayName === "") {
+                            var elemName = 'untitled_' + String(missingHeaderCount);
+                            missingHeaderCount++;
+                        } else {
+                            var elemName = element.displayName;
+                        }
+                        column_values.innerHTML += '<li class="list-group-item" draggable="true" ondragstart="drag(event)" id="' 
+                        + element + '"><span value="' + cdata[idx] + '" id="' + elemName + 'Pill">' + elemName + '</span></li>';
+                    });
+
+                    column_values.innerHTML += '</ul>';
+                })
+            });
+        }
+
+        let x_data = new Array();
+        let y_data = new Array();
+        var newChart;
+
+        function chart_handler(selection, x, y) {
             if (newChart) {
-                newChart.destroy()
+                newChart.destroy();
             };
-            var ctx = document.getElementById('new_chart');
-            var meta_data = chart_handler(event.target.value);
+
+            var ctype;
+            if (['bar', 'stackedBar','horizontalBar'].includes(selection)) {
+                ctype = create_bar_chart(selection, x, y);
+            }   
+            else if (selection == 'bubble') {
+                ctype = create_bubble_chart(x, y);
+            }
+            else if (selection == 'donut'){
+                ctype = create_doughnut_chart(x, y);
+            }
+            else if (selection == 'pie'){
+                ctype = create_pie_chart(x, y);
+            }
+            else if (selection == 'line'){
+                ctype = create_line_chart(x, y);
+            }
+            else if (selection == 'polarArea'){
+                ctype = create_polarArea_chart(x, y);
+            }
+            else if (selection == 'radar'){
+                ctype = create_radar_chart(x, y);
+            }
+            else if (selection == 'scatter'){
+                ctype = create_scatter_chart(x, y);
+            } 
+            else {
+                ctype = {};
+            };
+
+            if (ctype != {}) {
+                newChart = new Chart(ctx, ctype);
+            };
             
-            if (meta_data != {}) {
-                newChart = new Chart(ctx, meta_data);
-            };
+        }
+
+        function parse_string(str) {
+            return str.split(',');
+        }
+
+        document.addEventListener('drop', (event) => {
+            var xField = document.getElementById("xDropArea");
+            var xfieldItems = xField.querySelectorAll('[id$="Pill"]');
+
+            var yField = document.getElementById("yDropArea");
+            var yfieldItems = yField.querySelectorAll('[id$="Pill"]');
+
+            var x_data = new Array();
+            xfieldItems.forEach(item => {
+                var xvalues = item.getAttribute('value');
+                xvalues = parse_string(xvalues);
+
+                var jsonItem = {
+                    'data': xvalues, 
+                    'dataName': item.innerText
+                };
+                x_data.push(jsonItem);
+            });
+
+            var y_data = new Array();
+            yfieldItems.forEach(item => {
+                var yvalues = item.getAttribute('value');
+                yvalues = parse_string(yvalues);
+
+                y_data.push({
+                    'data': yvalues, 
+                    'dataName': item.innerText
+                });
+            });
+
+            var chartVal = chart_types.options[chart_types.selectedIndex].getAttribute('value');
+            chart_handler(chartVal, x_data, y_data);
         });
 
-    // // Example POST method implementation:
-    // async function postData(url = "", data = {}) {
-    //     // Default options are marked with *
-    //     const response = await fetch(url, {
-    //         method: "POST", // *GET, POST, PUT, DELETE, etc.
-    //         mode: "cors", // no-cors, *cors, same-origin
-    //         cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-    //         credentials: "same-origin", // include, *same-origin, omit
-    //         headers: {
-    //             "Content-Type": "application/json",
-    //             // 'Content-Type': 'application/x-www-form-urlencoded',
-    //         },
-    //         redirect: "follow", // manual, *follow, error
-    //         referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-    //         body: JSON.stringify(data), // body data type must match "Content-Type" header
-    //     });
-    //     return response.json(); // parses JSON response into native JavaScript objects
-    // }
+        
+        chart_types.addEventListener('change', (event) => {
+            chart_handler(event.target.value, x_data, y_data);
+        });
+
+        dataset_names.addEventListener('change', (event) => {
+            show_dataset_columns();
+        });
+
+
     </script>
 {{template "bottom" .}}

@@ -146,7 +146,9 @@ func (u *UIHandler) CreateSummary(c *gin.Context) {
 }
 
 func (u *UIHandler) ImportData(c *gin.Context) {
-	c.HTML(http.StatusCreated, "import.html", nil)
+	c.HTML(http.StatusCreated, "import.html", gin.H{
+		"pageType": "add",
+	})
 }
 
 func (u *UIHandler) EditData(c *gin.Context) {
@@ -162,8 +164,9 @@ func (u *UIHandler) EditData(c *gin.Context) {
 	}
 	json.Unmarshal(newBodyBytes, &datasets)
 
-	c.HTML(http.StatusOK, "edit_dataset.html", gin.H{
+	c.HTML(http.StatusOK, "import.html", gin.H{
 		"datasets": datasets.Results,
+		"pageType": "edit",
 	})
 }
 

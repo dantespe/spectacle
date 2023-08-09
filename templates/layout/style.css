@@ -1,11 +1,8 @@
-html, body {
-    height: 100%; /*Fixes the height to 100% of the viewport*/
-}
-
 body {
     margin:0;
-    padding-top: 87px; /*50px for the height of the navbar + 37px for the offset*/
-    padding-top: 70px; /*50px for the height of the bottom navbar*/
+    /* margin-top: 37px; */
+    padding-top: 37px; /*50px for the height of the navbar + 37px for the offset*/
+
 }
 
 nav{
@@ -22,7 +19,6 @@ nav{
 
 .container-fluid.scrollable {
     height: 100%; /*Sets the scrollable area to 100% of the viewport*/
-    overflow-x: auto; /*Allows the scrollable area to have a scrollbar based on the height of its content*/
 }
 
 .center {
@@ -56,7 +52,6 @@ nav{
     height: 35px;
     margin: 10px;
     padding: 10px;
-    border: 1px solid black;
 }
 
 /* @media screen and (min-width: 768px) {
