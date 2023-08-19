@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS Datasets(
     DisplayName TEXT NOT NULL,
     HeadersSet INT NOT NULL,
     NumRecords INTEGER,
-    MinRecordId INTEGER,
-    MaxRecordId INTEGER,
+    MinRecordId INTEGER DEFAULT -1,
+    MaxRecordId INTEGER DEFAULT -1,
     PRIMARY KEY (DatasetId)
 );
 
@@ -44,10 +44,13 @@ CREATE TABLE IF NOT EXISTS RecordsProcessed (
     UNIQUE (RecordId, DatasetId)
 );
 
+CREATE INDEX IF NOT EXISTS idx_datasetid_recordsprocessed ON RecordsProcessed(DatasetId);
+
 CREATE TABLE IF NOT EXISTS Cells (
     CellId SERIAL,
     RecordId INTEGER REFERENCES Records(RecordId),
     HeaderId INTEGER REFERENCES Headers(HeaderId),
+    DatasetId INTEGER REFERENCES Datasets(DatasetId),
     OperationId INTEGER REFERENCES Operations(OperationId),
     RawValue TEXT,
     IntValue INTEGER,
@@ -56,5 +59,6 @@ CREATE TABLE IF NOT EXISTS Cells (
     PRIMARY KEY (CellId)
 );
 
-CREATE INDEX IF NOT EXISTS idx_datasetid_cells ON Cells(RecordId);
+CREATE INDEX IF NOT EXISTS idx_recordid_cells ON Cells(RecordId);
+CREATE INDEX IF NOT EXISTS idx_datasetid_cells ON Cells(DatasetId);
 
