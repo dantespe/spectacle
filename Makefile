@@ -46,6 +46,8 @@ postgres:
 	cat $(PSQL_SCHEMA) | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d test
 
 docker_start:
+	docker start $(DOCKER_CONTAINER)
+	sleep 3
 	for i in $(DATABASES); do \
 		file=$$(echo "$$i"); \
 		echo "CREATE DATABASE $$file" | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER); \
