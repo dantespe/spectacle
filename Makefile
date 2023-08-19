@@ -61,8 +61,9 @@ docker_stop:
 docker_create:
 	cat $(PSQL_SCHEMA) | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DATABASE_NAME)
 
-docker_clean:
-	cat testing/delete_tables.sql | docker exec -i $(DOCKER_CONTAINER) psql -U $(POSTGRES_USER)
+docker_clean: docker_stop
+	rm -rf ${SPECTACLE_DATA_DIR}
+	mkdir ${SPECTACLE_DATA_DIR}
 
 test: docker_start db_test operation_test dataset_test header_test record_test cell_test
 
@@ -84,7 +85,7 @@ record_test: record/record.*go
 cell_test: cell/cell.*go
 	$(TEST) cell/cover.out ./cell
 
-clean: docker_clean
+clean:
 	rm $(COVERS)
 
 format:
