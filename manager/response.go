@@ -62,3 +62,8 @@ type DataResponse struct {
 	Message string           `json:"error,omitempty"`
 	Code    int              `json:"code"`
 }
+
+type DeleteDataResponse struct {
+	Message string `json:"error,omitempty"`
+	Code    int    `json:"code"`
+}

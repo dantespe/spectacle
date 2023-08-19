@@ -20,6 +20,7 @@ import (
 // Manager stores all useful things for Spectacle.
 type Manager struct {
 	mu  sync.RWMutex
+	del map[int64]*operation.Operation
 	eng *db.Engine
 }
 
@@ -41,6 +42,7 @@ func NewWithEngine(eng *db.Engine) (*Manager, error) {
 	}
 	return &Manager{
 		eng: eng,
+		del: make(map[int64]*operation.Operation),
 	}, nil
 }
 
@@ -621,4 +623,122 @@ func (m *Manager) GetData(req *DataRequest) (int, *DataResponse) {
 		resp.Next = baseUrl
 	}
 	return http.StatusOK, resp
+}
+
+func (m *Manager) deleteDataset(req *DeleteDataRequest, op *operation.Operation) {
+	// Mark Operation Running
+	if err := op.MarkRunning(); err != nil {
+		log.Printf("failed to set operation running with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to set operation running with err: %v", err))
+		return
+	}
+
+	// Create Tx
+	tx, err := m.eng.DatabaseHandle.Begin()
+	if err != nil {
+		log.Printf("failed to create transaction with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create tx with err: %v", err))
+		return
+	}
+	defer tx.Commit()
+
+	// Delete Cells
+	stmt, err := tx.Prepare("DELETE FROM CELLS Where CellId IN (SELECT CellId FROM (SELECT Records.RecordId AS RecordId, Cells.CellId AS CellId FROM Records, Cells WHERE Records.DatasetId = $1 AND Records.RecordId = Cells.RecordId ORDER BY Records.RecordId) AS Cells)")
+	if err != nil {
+		log.Printf("failed to create a delete cells stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create cells stmt with err: %v", err))
+	}
+	if _, err := stmt.Exec(req.DatasetId); err != nil {
+		log.Printf("failed to Exec cells stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to delete cells with err: %v", err))
+	}
+
+	// Delete RecordsProcessed
+	stmt, err = tx.Prepare("DELETE FROM RecordsProcessed WHERE DatasetId = $1")
+	if err != nil {
+		log.Printf("failed to create a delete recordsprocessed stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create recordsprocessed stmt with err: %v", err))
+	}
+	if _, err := stmt.Exec(req.DatasetId); err != nil {
+		log.Printf("failed to Exec recordsprocessed stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to delete recordsprocessed with err: %v", err))
+	}
+
+	// Delete Records
+	stmt, err = tx.Prepare("DELETE FROM Records WHERE DatasetId = $1")
+	if err != nil {
+		log.Printf("failed to create a delete records stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create delete records stmt with err: %v", err))
+	}
+	if _, err := stmt.Exec(req.DatasetId); err != nil {
+		log.Printf("failed to Exec records stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to delete records with err: %v", err))
+	}
+
+	// Delete Headers
+	stmt, err = tx.Prepare("DELETE FROM Headers WHERE DatasetId = $1")
+	if err != nil {
+		log.Printf("failed to create a delete headers stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create delete headers stmt with err: %v", err))
+	}
+	if _, err := stmt.Exec(req.DatasetId); err != nil {
+		log.Printf("failed to Exec headers stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to delete headers with err: %v", err))
+	}
+
+	// Delete Datasets
+	stmt, err = tx.Prepare("DELETE FROM Datasets WHERE DatasetId = $1")
+	if err != nil {
+		log.Printf("failed to create a delete datasets stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to create delete datasets stmt with err: %v", err))
+	}
+	if _, err := stmt.Exec(req.DatasetId); err != nil {
+		log.Printf("failed to Exec delete dataset stmt with err: %v", err)
+		op.MarkFailed(fmt.Sprintf("failed to delete datasets with err: %v", err))
+	}
+
+	op.MarkSuccess()
+}
+
+func (m *Manager) DeleteDataset(req *DeleteDataRequest) (int, *DeleteDataResponse) {
+	// Get DatasetId
+	ds, err := dataset.GetDatasetFromId(m.eng, req.DatasetId)
+	if err != nil {
+		log.Printf("failed to GetDatasetFromId with err: %v", err)
+		return http.StatusInternalServerError, &DeleteDataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	// Return 404 If Nec
+	if ds == nil {
+		return http.StatusNotFound, &DeleteDataResponse{
+			Message: fmt.Sprintf("failed to find dataset: %d", req.DatasetId),
+			Code:    http.StatusNotFound,
+		}
+	}
+
+	// Check for existing deletion operation
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.del[req.DatasetId]; ok {
+		return http.StatusNoContent, nil
+	}
+
+	// Create Operation
+	op, err := operation.New(m.eng)
+	if err != nil {
+		log.Printf("Failed to build create operation statement with error: %v", err)
+		return http.StatusInternalServerError, &DeleteDataResponse{
+			Message: "INTERNAL SERVER ERROR",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+	m.del[req.DatasetId] = op
+
+	// Background delete
+	go m.deleteDataset(req, op)
+
+	return http.StatusNoContent, nil
 }

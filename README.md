@@ -16,15 +16,16 @@ $ godoc --http=:6080
 ## REST Reference
 
 ### Overview
-| Endpoint                                             | Description                                       | Method |
-| ---------------------------------------------------- | ------------------------------------------------- | ------ |
-| [`/rest/status`](#status)                            | The status of the server.                         | `GET`  |
-| [`/rest/datasets`](#list-datasets)                   | Returns all datasets.                             | `GET`  |
-| [`/rest/datasets/<datasetId>`](#get-dataset)         | Returns a single dataset.                         | `GET`  |
-| [`/rest/datasets/<datasetId>/headers`](#get-headers) | Returns headers for a dataset.                    | `GET`  |
-| [`/rest/data/<datasetId>`](#data-api)                | Returns data from a dataset.                      | `GET`  |
-| [`/rest/dataset`](#create-dataset)                   | Creates a new dataset                             | `POST` |
-| [`/rest/dataset/<datasetId>/upload`](#upload)        | Uploads a new file to the dataset with datasetId. | `POST` |
+| Endpoint                                             | Description                                       | Method   |
+| ---------------------------------------------------- | ------------------------------------------------- | -------- |
+| [`/rest/status`](#status)                            | The status of the server.                         | `GET`    |
+| [`/rest/datasets`](#list-datasets)                   | Returns all datasets.                             | `GET`    |
+| [`/rest/datasets/<datasetId>`](#get-dataset)         | Returns a single dataset.                         | `GET`    |
+| [`/rest/datasets/<datasetId>/headers`](#get-headers) | Returns headers for a dataset.                    | `GET`    |
+| [`/rest/data/<datasetId>`](#data-api)                | Returns data from a dataset.                      | `GET`    |
+| [`/rest/dataset`](#create-dataset)                   | Creates a new dataset                             | `POST`   |
+| [`/rest/dataset/<datasetId>/upload`](#upload)        | Uploads a new file to the dataset with datasetId. | `POST`   |
+| [`/rest/dataset/<datasetId>`](#delete-dataset)       | Deletes the given dataset.                        | `DELETE` |
 
 
 #### [Status](#status)
@@ -265,4 +266,19 @@ curl "localhost:8080/rest/data/1?headers=2,3,8,6,9,10&maxresults=5"
       }
    ]
 }
+```
+
+#### [Delete Dataset](#delete-dataset)
+
+Deletes the given dataset. This is permanent and cannot be undone.
+
+`DeleteDatasetResponse`: 
+* `code`: status code of the operation. 
+* `message`: the error message if this request fails.
+
+__NOTE__: A successful call to this route will return nothing.
+
+Example:
+```
+curl -X DELETE localhost:8080/rest/dataset/4
 ```

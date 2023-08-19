@@ -36,6 +36,9 @@ func AddRestHandlerRoutes(rg *gin.RouterGroup) error {
 	for k, v := range rh.PostRoutes() {
 		rg.POST(k, v)
 	}
+	for k, v := range rh.DeleteRoutes() {
+		rg.DELETE(k, v)
+	}
 	return nil
 }
 
@@ -108,6 +111,17 @@ func (h *RestHandler) Data(c *gin.Context) {
 	c.JSON(h.mgr.GetData(req))
 }
 
+func (h *RestHandler) DeleteDataset(c *gin.Context) {
+	req, err := h.rb.DeleteDataRequestBuilder(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, map[string]string{
+			"message": err.Error(),
+		})
+		return
+	}
+	c.JSON(h.mgr.DeleteDataset(req))
+}
+
 func (h *RestHandler) GetRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/status":              h.Status,
@@ -122,5 +136,11 @@ func (h *RestHandler) PostRoutes() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
 		"/dataset":            h.CreateDataset,
 		"/dataset/:id/upload": h.UploadDataset,
+	}
+}
+
+func (h *RestHandler) DeleteRoutes() map[string]gin.HandlerFunc {
+	return map[string]gin.HandlerFunc{
+		"/dataset/:id": h.DeleteDataset,
 	}
 }

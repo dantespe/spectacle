@@ -90,15 +90,15 @@ func GetDatasetFromId(eng *db.Engine, datasetId int64) (*Dataset, error) {
 		DatasetId: datasetId,
 		eng:       eng,
 	}
+
+	// 404: We did not find the dataset given datasetId
 	if !rows.Next() {
 		return nil, nil
 	}
 
 	if err := rows.Scan(&ds.DisplayName, &ds.HeadersSet, &ds.NumRecords, &ds.MinRecordId, &ds.MaxRecordId); err != nil {
-		// 404: We did not find the dataset given datasetId
-		return nil, nil
+		return nil, err
 	}
-
 	return ds, nil
 }
 

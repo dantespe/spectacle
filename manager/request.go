@@ -149,3 +149,18 @@ func (*RequestBuilder) DataRequestBuilder(c *gin.Context) (*DataRequest, error) 
 	}
 	return resp, nil
 }
+
+type DeleteDataRequest struct {
+	DatasetId int64 `json:"datasetId"`
+}
+
+func (*RequestBuilder) DeleteDataRequestBuilder(c *gin.Context) (*DeleteDataRequest, error) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeleteDataRequest{
+		DatasetId: id,
+	}, nil
+}
