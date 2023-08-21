@@ -24,7 +24,7 @@
     <tr>
         <th scope="col" width="35%">ID</th>
         <th scope="col" width="35%">Display Name</th>
-        <th scope="col" width="20%">Row Count</th>
+        <th scope="col" width="15%">Row Count</th>
         <th scope="col" width="35%">Settings</th>
     </tr>
     </thead>
@@ -35,10 +35,69 @@
         <td>{{ .DatasetId }}</td>
         <td>{{ .DisplayName }}</td>
         <td>{{ .NumRecords }}</td>
-        <td><i class="bi bi-gear"></i></td>
+        <td><i class="btn bi bi-gear" data-bs-toggle="modal" data-bs-target="#exampleModal" value="{{ .DisplayName }},{{ .DatasetId }}" onclick="createModal(this)"></i></td>
     </tr>
     {{ end }}
     </tbody>
-</table>
+  </table>
+
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header" id="modal_header">
+        </div>
+        <div class="modal-body">
+          <label for="newFileName">New File Name: </label>
+          <input type="text" id="newFileName" name="newFileName" class="form-control" aria-describedby="fileNameBlock">
+        </div>
+        <div class="modal-footer" id="modal_footer">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="exampleModal2" aria-hidden="true" aria-labelledby="exampleModalToggleLabel2" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header" id="modal_header2">
+        </div>
+        <div class="modal-body" id="modal_body2">
+          <span>You are about to delete this dataset. Click 'Confirm Dataset' or return to settings.</span>
+        </div>
+        <div class="modal-footer" id="modal_footer2">
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
+<script type="text/javascript">
+  const modHeader = document.getElementById('modal_header');
+  const modFooter = document.getElementById('modal_footer');
+
+  const modHeader2 = document.getElementById('modal_header2');
+  const modFooter2 = document.getElementById('modal_footer2');
+
+  function createModal(clicked) {
+    const datasetInfo = clicked.getAttribute('value').split(",");
+    modHeader.innerHTML = '<h1 class="modal-title fs-5" id="exampleModalLabel">Edit ' + datasetInfo[0] +'(ID: ' + datasetInfo[1] + ')</h1>' + 
+    '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>';
+    modFooter.innerHTML = '<button type="button" class="btn btn-danger" value="' + clicked.getAttribute('value') + '" data-bs-toggle="modal" data-bs-target="#exampleModal2" onclick="createConfirmationModal(this)">Delete Dataset</button>' 
+    + '<button type="button" class="btn btn-primary">Save changes</button>'
+    + '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
+  }
+
+  function createConfirmationModal(clicked) {
+    const datasetInfo = clicked.getAttribute('value').split(",");
+    modHeader2.innerHTML = '<h1 class="modal-title fs-5" id="exampleModalLabel2">' + datasetInfo[0] +'(ID: ' + datasetInfo[1] + ') Dataset Confirmation</h1>' + 
+    '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>';
+    modFooter2.innerHTML = '<button type="button" class="btn btn-danger" value="' + clicked.getAttribute('value') + '" data-bs-dismiss="modal" onclick="deleteDataset(this)">Confirm Delete</button>' 
+    + '<button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#exampleModal">Settings</button>'
+  }
+
+  function deleteDataset(clicked) {
+    const datasetInfo = clicked.getAttribute('value').split(",");
+    fetch('http://localhost:8080/rest/dataset/' + datasetInfo[1], {"method": "DELETE"})
+  }
+</script>
 {{end}}
