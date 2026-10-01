@@ -13,13 +13,29 @@ type RequestBuilder struct{}
 // CreateDatasetRequest
 type CreateDatasetRequest struct {
 	DisplayName string `json:"displayName"`
+
+	// InputFile
+	InputFile io.Reader `json:"-"`
 }
 
 // CreateDatasetRequestBuilder from gin.Context.
 func (*RequestBuilder) CreateDatasetRequestBuilder(c *gin.Context) (*CreateDatasetRequest, *CreateDatasetResponse) {
 	var req CreateDatasetRequest
 	c.ShouldBindJSON(&req)
-	return &req, nil
+
+	// Get File from the form
+	_, header, err := c.Request.FormFile("file")
+	if err != nil {
+		return nil, err
+	}
+	file, err := header.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateDatasetRequest{
+		InputFile: file, 
+	}, nil
 }
 
 // GetDatasetRequest
